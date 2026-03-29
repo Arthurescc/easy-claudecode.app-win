@@ -21,11 +21,10 @@
    - `ccr` CLI（本仓库不内置，需自行安装到 PATH）
    - PowerShell 7 或 Windows PowerShell 5.1
 2. 复制环境文件：
-   - `cp .env.example .env`
+   - `Copy-Item .env.example .env`
 3. 安装 Python 依赖：
-   - `python3 -m venv .venv`
-   - `source .venv/bin/activate`
-   - `pip install -r requirements.txt`
+   - `py -3 -m venv .venv`
+   - `.\.venv\Scripts\python.exe -m pip install -r requirements.txt`
 4. 安装 Node 依赖：
    - `npm install`
 5. 启动控制台：

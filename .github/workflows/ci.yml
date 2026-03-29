@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+          .\.venv\Scripts\python.exe -m pip install --upgrade pip
+          .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+          npm ci
+
+      - name: Static checks
+        run: |
+          .\.venv\Scripts\python.exe -m py_compile services/backend/app.py services/backend/claude_console_utils.py
+          .\.venv\Scripts\python.exe .github/scripts/check_inline_js.py apps/web/claude-console.html
+          node --check services/backend/claude_code_dashscope_proxy.js
+          node --check config/router/custom-router.js
+          .\scripts\sync-router.ps1
+
+      - name: Backend smoke test
+        run: |
+          $env:EASY_CLAUDECODE_HOME = Join-Path $env:RUNNER_TEMP "easy-home"
+          $env:CLAUDE_CONSOLE_PORT = "18982"
+          $env:CLAUDE_CONSOLE_PYTHON_BIN = (Resolve-Path ".\.venv\Scripts\python.exe").Path
+          $env:EASY_CLAUDECODE_ENV_FILE = Join-Path $env:RUNNER_TEMP "easy.env"
+          Copy-Item .env.example $env:EASY_CLAUDECODE_ENV_FILE
+          ((Get-Content $env:EASY_CLAUDECODE_ENV_FILE) -replace '^CLAUDE_CONSOLE_PORT=18882$', 'CLAUDE_CONSOLE_PORT=18982') | Set-Content $env:EASY_CLAUDECODE_ENV_FILE
+          $scriptPath = (Resolve-Path ".\scripts\run-claude-console.ps1").Path
+          $backend = Start-Process powershell -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $scriptPath) -WorkingDirectory $PWD -PassThru
+          $healthy = $false
+          for ($i = 0; $i -lt 30; $i++) {
+              try {
+                  $response = Invoke-WebRequest -Uri "http://127.0.0.1:18982/health" -UseBasicParsing -TimeoutSec 2
+                  if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 300) {
+                      $healthy = $true
+                      break
+                  }
+              } catch {
+              }
+              Start-Sleep -Seconds 1
+          }
+          if (-not $healthy) {
+              throw "backend did not become healthy in time"
+          }
+          Invoke-WebRequest -Uri "http://127.0.0.1:18982/health" -UseBasicParsing | Select-Object -ExpandProperty Content
+          Invoke-WebRequest -Uri "http://127.0.0.1:18982/claude-console/status" -UseBasicParsing | Select-Object -ExpandProperty Content
+          $bootstrapRaw = Invoke-WebRequest -Uri "http://127.0.0.1:18982/claude-console/bootstrap" -UseBasicParsing | Select-Object -ExpandProperty Content
+          $bootstrap = $bootstrapRaw | ConvertFrom-Json
+          if (-not $bootstrap.ok) {
+              throw "bootstrap returned ok=false"
+          }
+          if (-not $bootstrap.webDefaults.locale) {
+              throw "bootstrap missing locale"
+          }
+          Write-Host ("bootstrap locale: " + $bootstrap.webDefaults.locale)
+          if (-not $backend.HasExited) {
+              Stop-Process -Id $backend.Id -Force
+          }

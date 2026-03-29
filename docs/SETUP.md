@@ -10,10 +10,9 @@
 
 ## Python setup
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+```powershell
+py -3 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
 `requirements.txt` also includes `Pillow`, which the desktop build uses to generate the app icon.
@@ -26,8 +25,8 @@ npm install
 
 ## Environment
 
-```bash
-cp .env.example .env
+```powershell
+Copy-Item .env.example .env
 ```
 
 Fill in only the providers you want to use. `DASHSCOPE_CODINGPLAN_API_KEY` is the default Coding Plan chain. `AICODELINK_OPUS46_API_KEY` is optional.
