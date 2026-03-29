@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import json
 import os
-import pty
 import re
 import shutil
 import subprocess
@@ -16,6 +15,11 @@ from queue import Empty, Queue
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
+
+try:
+    import pty
+except ImportError:  # pragma: no cover - Windows fallback
+    pty = None
 
 
 ROUTE_LINE_RE = re.compile(r"^\s*\[route:[^\]]+\]\s*$", re.IGNORECASE)
@@ -1018,6 +1022,8 @@ def _clean_subprocess_env() -> Dict[str, str]:
 
 
 def _spawn_pty_process(cmd: List[str], cwd: str) -> tuple[subprocess.Popen, int]:
+    if pty is None:
+        raise OSError("pty unsupported on this platform")
     master_fd, slave_fd = pty.openpty()
     try:
         process = subprocess.Popen(
