@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Claude Code 工作台</title>
+    <title id="document-title">Claude Code 工作台</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23d67f5c'/%3E%3Cpath d='M32 12l4.2 11.8L48 28l-11.8 4.2L32 44l-4.2-11.8L16 28l11.8-4.2L32 12z' fill='%23fff7f2'/%3E%3C/svg%3E">
     <style>
         :root {
@@ -1197,22 +1197,22 @@
             <section class="sidebar-top">
                 <div class="brand-row">
                         <div>
-                            <div class="brand-mark"><span>✺</span><strong>Claude Code 工作台</strong></div>
+                            <div class="brand-mark"><span>✺</span><strong id="brand-title">Claude Code 工作台</strong></div>
                         <div class="brand-sub"></div>
                     </div>
                 </div>
                 <div class="sidebar-nav">
                     <button class="nav-item active" id="nav-new-thread">
                         <span class="nav-icon">⌘</span>
-                        <span>新线程</span>
+                        <span id="nav-new-thread-label">新线程</span>
                     </button>
                     <button class="nav-item" id="nav-automations">
                         <span class="nav-icon">⟳</span>
-                        <span>自动化</span>
+                        <span id="nav-automations-label">自动化</span>
                     </button>
                     <button class="nav-item" id="nav-skills">
                         <span class="nav-icon">✦</span>
-                        <span>技能</span>
+                        <span id="nav-skills-label">技能</span>
                     </button>
                 </div>
                 <div class="sidebar-section-head">
@@ -1268,8 +1268,8 @@
             <section class="workspace-body" id="workspace-body">
                 <div class="welcome-state" id="welcome-state">
                     <div class="welcome-card">
-                        <div class="welcome-chip">Claude Code</div>
-                        <div class="welcome-title">直接开始新线程。</div>
+                        <div class="welcome-chip" id="welcome-chip">Claude Code</div>
+                        <div class="welcome-title" id="welcome-title">直接开始新线程。</div>
                     </div>
                 </div>
                 <div class="messages" id="messages" style="display:none;"></div>
@@ -1283,7 +1283,7 @@
                             <input id="file-input" class="native-file-input" type="file" multiple aria-hidden="true" tabindex="-1" />
                             <select class="composer-select" id="model-route"></select>
                             <select class="composer-select" id="agent-mode"></select>
-                            <label class="tiny-label" for="permission-mode">网页权限</label>
+                            <label class="tiny-label" for="permission-mode" id="permission-mode-label">网页权限</label>
                             <select class="composer-select" id="permission-mode">
                                 <option value="acceptEdits">自动接收改动</option>
                                 <option value="default">默认确认模式</option>
@@ -1341,28 +1341,32 @@
             <div class="overlay-body">
                 <div class="overlay-note" id="settings-dialog-message">这里可以切换常用 API key 和上游地址。保存后重启 Claude Code.app 即可完整生效。</div>
                 <div class="settings-grid">
+                    <label class="overlay-field">
+                        <span id="settings-locale-label">界面语言</span>
+                        <select class="overlay-input" id="settings-locale"></select>
+                    </label>
                     <label class="overlay-field span-2">
-                        <span>DashScope Coding Plan API Key</span>
+                        <span id="settings-dashscope-key-label">DashScope Coding Plan API Key</span>
                         <input class="overlay-input" id="settings-dashscope-key" type="password" autocomplete="off" />
                     </label>
                     <label class="overlay-field span-2">
-                        <span>Opus 4.6 Thinking API Key</span>
+                        <span id="settings-opus-key-label">Opus 4.6 Thinking API Key</span>
                         <input class="overlay-input" id="settings-opus-key" type="password" autocomplete="off" />
                     </label>
                     <label class="overlay-field span-2">
-                        <span>DashScope 上游地址</span>
+                        <span id="settings-dashscope-upstream-label">DashScope 上游地址</span>
                         <input class="overlay-input" id="settings-dashscope-upstream" type="text" autocomplete="off" />
                     </label>
                     <label class="overlay-field span-2">
-                        <span>Opus 上游地址</span>
+                        <span id="settings-opus-upstream-label">Opus 上游地址</span>
                         <input class="overlay-input" id="settings-opus-upstream" type="text" autocomplete="off" />
                     </label>
                     <label class="overlay-field">
-                        <span>Router 健康检查</span>
+                        <span id="settings-router-health-label">Router 健康检查</span>
                         <input class="overlay-input" id="settings-router-health" type="text" autocomplete="off" />
                     </label>
                     <label class="overlay-field">
-                        <span>Proxy 健康检查</span>
+                        <span id="settings-proxy-health-label">Proxy 健康检查</span>
                         <input class="overlay-input" id="settings-proxy-health" type="text" autocomplete="off" />
                     </label>
                 </div>
@@ -1388,6 +1392,411 @@
         const LARGE_TEXT_PREVIEW_LIMIT = 2200;
         const LARGE_TOOL_PREVIEW_LIMIT = 1800;
         const LARGE_THINKING_PREVIEW_LIMIT = 1200;
+        const LOCALE_STORAGE_KEY = 'claude-console-locale-v1';
+        const LOCALE_OPTIONS = [
+            { id: 'zh-CN', label: '简体中文' },
+            { id: 'en-US', label: 'English' },
+            { id: 'ja-JP', label: '日本語' },
+            { id: 'ko-KR', label: '한국어' },
+            { id: 'es-ES', label: 'Español' },
+            { id: 'fr-FR', label: 'Français' },
+            { id: 'de-DE', label: 'Deutsch' },
+            { id: 'pt-BR', label: 'Português (Brasil)' },
+        ];
+        const I18N = {
+            'zh-CN': {
+                document_title: 'Claude Code 工作台',
+                brand_title: 'Claude Code 工作台',
+                nav_new_thread: '新线程',
+                nav_automations: '自动化',
+                nav_skills: '技能',
+                section_threads: '线程',
+                section_automations: '自动化',
+                section_skills: '技能',
+                refresh: '刷新',
+                search_threads: '搜索对话标题或内容',
+                search_automations: '搜索自动化名称',
+                search_skills: '搜索技能、代理或 MCP',
+                filter_active: '进行中',
+                filter_archived: '已归档',
+                filter_internal: '系统会话',
+                new_folder: '新建文件夹',
+                loading_threads: '正在加载对话历史...',
+                workspace_subtitle_default: 'Claude Code 中文工作台 · Coding Plan 已接入',
+                workspace_title_new: '新对话',
+                welcome_title: '直接开始新线程。',
+                settings_button: '设置',
+                open_terminal: '在终端继续',
+                permission_web: '网页权限',
+                permission_accept_edits: '自动接收改动',
+                permission_default: '默认确认模式',
+                permission_bypass: '全权限（不再询问）',
+                attach_file: '＋ 文件',
+                composer_placeholder: '直接输入任务，例如：帮我删除桌面几张截屏，或检查这个仓库的关键报错并修复。',
+                composer_note: 'Enter 发送，Shift+Enter 换行。',
+                stop: '停止',
+                send: '发送',
+                dialog_edit_session: '编辑会话',
+                dialog_close: '关闭',
+                dialog_title: '标题',
+                dialog_folder: '文件夹',
+                dialog_folder_placeholder: '留空则自动归类',
+                date_today: '今天',
+                date_yesterday: '昨天',
+                date_earlier: '更早',
+                cancel: '取消',
+                save: '保存',
+                settings_title: '模型与 API 设置',
+                settings_message: '这里可以切换常用 API key、上游地址和全局界面语言。保存后重启 Claude Code.app，模型密钥和上游地址会完整生效。',
+                settings_locale: '界面语言',
+                settings_dashscope_key: 'DashScope Coding Plan API Key',
+                settings_opus_key: 'Opus 4.6 Thinking API Key',
+                settings_dashscope_upstream: 'DashScope 上游地址',
+                settings_opus_upstream: 'Opus 上游地址',
+                settings_router_health: 'Router 健康检查',
+                settings_proxy_health: 'Proxy 健康检查',
+                save_settings: '保存设置',
+                loading_settings: '正在读取当前配置...',
+                saving_settings: '正在保存配置...',
+                settings_saved: '设置已保存。',
+                settings_restart_required: '保存后需重启 Claude Code.app，新的模型密钥与上游地址才会完整生效。',
+                env_file_label: '当前写入文件：{path}',
+                loading_automations: '正在同步自动化列表...',
+                empty_automations: '没有可显示的自动化。',
+                loading_skills: '正在同步技能、Agents 和 MCP...',
+                empty_skills: '没有可显示的技能、代理或 MCP。',
+                refreshing_sessions: '正在刷新最新会话...',
+                syncing_sessions: '正在同步会话历史...',
+                empty_archived: '还没有已归档对话。',
+                empty_sessions: '还没有可见对话。',
+                empty_folder: '文件夹里还没有会话。',
+                unnamed_automation: '未命名自动化',
+                unnamed_item: '未命名',
+                unnamed_session: '未命名会话',
+                agents_heading: 'Agents',
+                skills_heading: 'Skills',
+                mcp_heading: 'MCP',
+                reveal_location: '打开位置',
+                delete_automation: '删除自动化',
+                collapse_folder: '收起文件夹',
+                expand_folder: '展开文件夹',
+                rename_folder_button: '改文件夹标题',
+                delete_session_heading: '删除会话',
+                delete_session_message: '删除会话“{title}”后，会被移到回收区。',
+                delete_automation_heading: '删除自动化',
+                delete_automation_message: '删除自动化“{title}”后会移到回收区或从外部调度里移除。',
+                pin: '置顶',
+                unpin: '取消置顶',
+                rename_title_action: '改标题和文件夹',
+                archive: '归档',
+                restore: '恢复',
+                delete: '删除',
+                generic_attachment: '附件',
+                remove_attachment: '移除',
+                collapse: '收起',
+                expand_all: '展开全部',
+                collapsed_chars: '已折叠 {count} 字',
+                char_count: '{count} 字',
+                tool_call: '工具调用',
+                tool_done: '完成',
+                tool_error: '错误',
+                showing_recent: '已显示最近 {window} / {total} 条消息',
+                load_earlier: '加载更早 {count} 条',
+                show_all: '显示全部',
+                copy_reply: '复制这条回复',
+                label_you: '你',
+                label_tool: '工具结果',
+                label_claude_fallback: 'Claude',
+                auto_model_badge: 'Auto · 主链 {defaultRoute} · 视觉 {imageRoute}',
+                current_model_badge: '当前模型 {label} · {description}',
+                current_agent_badge: '{label} · {description}',
+                collaboration_off: '关闭协作',
+                active_collab: '活跃协作 {count}',
+                tmux_count: 'tmux {count}',
+                run_status_idle: '空闲',
+                run_status_running: '运行中 {count}',
+                run_status_streaming: '流式响应中{suffix}',
+                composer_note_detail: 'Enter 发送，Shift+Enter 换行，输入法候选时不会误发送；权限为 {permission}；协作模式为 {agent}{attachmentSuffix}。',
+                attachment_suffix: ' · 已附 {count} 个文件',
+                topic_general: '通用对话',
+                topic_desktop_files: '桌面文件',
+                topic_visual: '视觉界面',
+                topic_bugfix: '故障修复',
+                topic_code_review: '代码核验',
+                topic_deploy: '部署运维',
+                topic_automation: '自动化流程',
+                topic_docs: '文档整理',
+                uncategorized: '未归类',
+                waiting_first_reply: '等待第一条回复…',
+                title_delete_screenshots: '删除桌面截屏照片',
+                title_fix_errors: '修复关键报错',
+                title_code_review: '代码变更核验',
+                title_deploy: '部署发布流程',
+                title_visual_analysis: '界面截图分析',
+                title_file_create: '文件创建请求',
+                title_file_update: '文件更新请求',
+                draft_session: '草稿会话',
+                conversation_subtitle: '{topic} · 会话 {sessionId} · {model}',
+                draft_subtitle: '{topic} · 草稿会话',
+                folder_create_heading: '新建文件夹',
+                folder_create_message: '文件夹创建后会长期保留，之后可以把会话移动或重命名到这里。',
+                create: '创建',
+                rename_folder_heading: '改文件夹标题',
+                rename_folder_message: '会把当前文件夹里的会话一起迁到新标题下。',
+                enter_folder_name: '请输入文件夹名称',
+                upload_failed: '上传失败（状态 {status}）',
+                request_failed: '请求失败（状态 {status}）',
+                chat_failed: '聊天请求失败（状态 {status}）',
+                current_config_loaded: '当前配置已读取。',
+                attached_files_label: '已附文件',
+                system_notice_busy: '[系统] 当前会话正在后台执行任务，已自动切到新会话继续，避免卡住。',
+                system_notice_system: '[系统] 当前会话属于系统事务线程，已自动切到新会话继续，避免把超长任务上下文带进手动聊天。',
+                system_notice_session_switched: '[系统] {message}',
+                stopped: '[已停止]',
+                unknown_error: '未知错误',
+                session_switched_default: '会话已自动切换。',
+                thinking_expand: '展开思考过程',
+                thinking_collapse: '收起思考过程',
+                create_folder_error: '请输入文件夹名称',
+                create_folder_auto: '留空则自动归类',
+            },
+            'en-US': {
+                document_title: 'Claude Code Workspace',
+                brand_title: 'Claude Code Workspace',
+                nav_new_thread: 'New Thread',
+                nav_automations: 'Automations',
+                nav_skills: 'Skills',
+                section_threads: 'Threads',
+                section_automations: 'Automations',
+                section_skills: 'Skills',
+                refresh: 'Refresh',
+                search_threads: 'Search thread title or content',
+                search_automations: 'Search automation name',
+                search_skills: 'Search skills, agents, or MCP',
+                filter_active: 'Active',
+                filter_archived: 'Archived',
+                filter_internal: 'System',
+                new_folder: 'New folder',
+                loading_threads: 'Loading conversation history...',
+                workspace_subtitle_default: 'Claude Code workspace · Coding Plan connected',
+                workspace_title_new: 'New chat',
+                welcome_title: 'Start a new thread right away.',
+                settings_button: 'Settings',
+                open_terminal: 'Continue in Terminal',
+                permission_web: 'Web permissions',
+                permission_accept_edits: 'Auto-accept edits',
+                permission_default: 'Confirm by default',
+                permission_bypass: 'Full access (no prompts)',
+                attach_file: '+ File',
+                composer_placeholder: 'Type a task, for example: delete a few screenshots on my desktop, or inspect this repo for critical errors and fix them.',
+                composer_note: 'Press Enter to send, Shift+Enter for a new line.',
+                stop: 'Stop',
+                send: 'Send',
+                dialog_edit_session: 'Edit thread',
+                dialog_close: 'Close',
+                dialog_title: 'Title',
+                dialog_folder: 'Folder',
+                dialog_folder_placeholder: 'Leave empty to auto-classify',
+                date_today: 'Today',
+                date_yesterday: 'Yesterday',
+                date_earlier: 'Earlier',
+                cancel: 'Cancel',
+                save: 'Save',
+                settings_title: 'Models & API settings',
+                settings_message: 'Switch your common API keys, upstreams, and global UI language here. Restart Claude Code.app after saving to fully apply model keys and upstream changes.',
+                settings_locale: 'Interface language',
+                settings_dashscope_key: 'DashScope Coding Plan API Key',
+                settings_opus_key: 'Opus 4.6 Thinking API Key',
+                settings_dashscope_upstream: 'DashScope upstream',
+                settings_opus_upstream: 'Opus upstream',
+                settings_router_health: 'Router health URL',
+                settings_proxy_health: 'Proxy health URL',
+                save_settings: 'Save settings',
+                loading_settings: 'Loading current settings...',
+                saving_settings: 'Saving settings...',
+                settings_saved: 'Settings saved.',
+                settings_restart_required: 'Restart Claude Code.app after saving to fully apply the new model keys and upstream URLs.',
+                env_file_label: 'Writing to: {path}',
+                loading_automations: 'Syncing automations...',
+                empty_automations: 'No automations to show.',
+                loading_skills: 'Syncing skills, agents, and MCP...',
+                empty_skills: 'No skills, agents, or MCP to show.',
+                refreshing_sessions: 'Refreshing recent threads...',
+                syncing_sessions: 'Syncing conversation history...',
+                empty_archived: 'No archived threads yet.',
+                empty_sessions: 'No visible threads yet.',
+                empty_folder: 'This folder has no threads yet.',
+                unnamed_automation: 'Untitled automation',
+                unnamed_item: 'Untitled',
+                unnamed_session: 'Untitled thread',
+                agents_heading: 'Agents',
+                skills_heading: 'Skills',
+                mcp_heading: 'MCP',
+                reveal_location: 'Open location',
+                delete_automation: 'Delete automation',
+                collapse_folder: 'Collapse folder',
+                expand_folder: 'Expand folder',
+                rename_folder_button: 'Rename folder',
+                delete_session_heading: 'Delete thread',
+                delete_session_message: 'Deleting thread "{title}" will move it to the recycle area.',
+                delete_automation_heading: 'Delete automation',
+                delete_automation_message: 'Deleting automation "{title}" will move it to recycle or remove it from the external scheduler.',
+                pin: 'Pin',
+                unpin: 'Unpin',
+                rename_title_action: 'Rename title and folder',
+                archive: 'Archive',
+                restore: 'Restore',
+                delete: 'Delete',
+                generic_attachment: 'Attachment',
+                remove_attachment: 'Remove',
+                collapse: 'Collapse',
+                expand_all: 'Expand all',
+                collapsed_chars: '{count} chars collapsed',
+                char_count: '{count} chars',
+                tool_call: 'Tool call',
+                tool_done: 'Done',
+                tool_error: 'Error',
+                showing_recent: 'Showing the most recent {window} / {total} messages',
+                load_earlier: 'Load {count} earlier',
+                show_all: 'Show all',
+                copy_reply: 'Copy this reply',
+                label_you: 'You',
+                label_tool: 'Tool result',
+                label_claude_fallback: 'Claude',
+                auto_model_badge: 'Auto · Default {defaultRoute} · Vision {imageRoute}',
+                current_model_badge: 'Current model {label} · {description}',
+                current_agent_badge: '{label} · {description}',
+                collaboration_off: 'Collaboration off',
+                active_collab: 'Active runs {count}',
+                tmux_count: 'tmux {count}',
+                run_status_idle: 'Idle',
+                run_status_running: 'Running {count}',
+                run_status_streaming: 'Streaming{suffix}',
+                composer_note_detail: 'Press Enter to send, Shift+Enter for a new line, IME composition will not send accidentally; permissions: {permission}; collaboration: {agent}{attachmentSuffix}.',
+                attachment_suffix: ' · {count} file(s) attached',
+                topic_general: 'General chat',
+                topic_desktop_files: 'Desktop files',
+                topic_visual: 'Visual UI',
+                topic_bugfix: 'Bug fixing',
+                topic_code_review: 'Code review',
+                topic_deploy: 'Deploy ops',
+                topic_automation: 'Automation',
+                topic_docs: 'Docs',
+                uncategorized: 'Uncategorized',
+                waiting_first_reply: 'Waiting for the first reply…',
+                title_delete_screenshots: 'Delete desktop screenshots',
+                title_fix_errors: 'Fix critical errors',
+                title_code_review: 'Review code changes',
+                title_deploy: 'Ship deployment flow',
+                title_visual_analysis: 'Analyze UI screenshots',
+                title_file_create: 'Create files',
+                title_file_update: 'Update files',
+                draft_session: 'Draft thread',
+                conversation_subtitle: '{topic} · Thread {sessionId} · {model}',
+                draft_subtitle: '{topic} · Draft thread',
+                folder_create_heading: 'Create folder',
+                folder_create_message: 'Folders stay available for future threads. You can move or rename threads into them later.',
+                create: 'Create',
+                rename_folder_heading: 'Rename folder',
+                rename_folder_message: 'Threads in this folder will move together under the new title.',
+                enter_folder_name: 'Please enter a folder name',
+                upload_failed: 'Upload failed (status {status})',
+                request_failed: 'Request failed (status {status})',
+                chat_failed: 'Chat request failed (status {status})',
+                current_config_loaded: 'Current configuration loaded.',
+                attached_files_label: 'Attached files',
+                system_notice_busy: '[System] This thread is already running in the background, so a new thread was opened automatically to keep the UI responsive.',
+                system_notice_system: '[System] This thread belongs to a system workflow, so a new chat was opened automatically to avoid dragging a long-running context into a manual conversation.',
+                system_notice_session_switched: '[System] {message}',
+                stopped: '[Stopped]',
+                unknown_error: 'Unknown error',
+                session_switched_default: 'The thread was switched automatically.',
+                thinking_expand: 'Expand reasoning',
+                thinking_collapse: 'Collapse reasoning',
+                create_folder_error: 'Please enter a folder name',
+                create_folder_auto: 'Leave empty to auto-classify',
+            },
+        };
+        const MODE_I18N = {
+            auto: {
+                zh: { label: 'Auto', description: '按任务内容自动路由到最合适的 Coding Plan 模型' },
+                en: { label: 'Auto', description: 'Automatically route to the best Coding Plan model for the task' },
+            },
+            glm5: {
+                zh: { label: 'glm-5', description: '任务拆解、细节补全、agent teams 编排' },
+                en: { label: 'glm-5', description: 'Task decomposition, detail completion, and agent-teams orchestration' },
+            },
+            glm47: {
+                zh: { label: 'glm-4.7', description: '稳态文本和长对话托底' },
+                en: { label: 'glm-4.7', description: 'Fallback for stable text and long conversations' },
+            },
+            kimi: {
+                zh: { label: 'kimi-k2.5', description: '截图、OCR、UI、图像理解' },
+                en: { label: 'kimi-k2.5', description: 'Screenshots, OCR, UI, and image understanding' },
+            },
+            qwenmax: {
+                zh: { label: 'qwen3-max-2026-01-23', description: '复杂推理托底和代码核验' },
+                en: { label: 'qwen3-max-2026-01-23', description: 'Fallback for complex reasoning and code verification' },
+            },
+            qwen35: {
+                zh: { label: 'qwen3.5-plus', description: '视觉托底和通用文本补位' },
+                en: { label: 'qwen3.5-plus', description: 'Vision fallback and general text backup' },
+            },
+            qwencoder: {
+                zh: { label: 'qwen3-coder-plus', description: '额外编码后备链路' },
+                en: { label: 'qwen3-coder-plus', description: 'Extra coding backup route' },
+            },
+            minimax: {
+                zh: { label: 'MiniMax-M2.5', description: '主编程、调试、修复、高逻辑实现' },
+                en: { label: 'MiniMax-M2.5', description: 'Primary coding, debugging, repairs, and high-logic implementation' },
+            },
+            opus46: {
+                zh: { label: 'opus 4.6 thinking', description: 'Anthropic 深度思考手动档' },
+                en: { label: 'opus 4.6 thinking', description: 'Anthropic deep-thinking manual mode' },
+            },
+        };
+        const AGENT_MODE_I18N = {
+            none: {
+                zh: { label: '关闭协作', description: '不强制使用自定义 agents' },
+                en: { label: 'No collaboration', description: 'Do not force custom agents' },
+            },
+            auto: {
+                zh: { label: 'Auto', description: '由 glm-5 先做任务判读，再决定是否分派 specialists' },
+                en: { label: 'Auto', description: 'Let glm-5 classify the task first, then decide whether to dispatch specialists' },
+            },
+            teams: {
+                zh: { label: 'Agent Teams', description: '复杂任务时并行拉起多个 specialists 协作' },
+                en: { label: 'Agent Teams', description: 'Run multiple specialists in parallel for complex work' },
+            },
+            subagent: {
+                zh: { label: 'Subagent', description: '轻量分派一个主 specialist，必要时再串联验证' },
+                en: { label: 'Subagent', description: 'Route to one primary specialist, then chain verification only if needed' },
+            },
+            coder: {
+                zh: { label: '编码代理', description: '直接进入强编程实现与排障链' },
+                en: { label: 'Coding agent', description: 'Enter the strong coding and debugging route directly' },
+            },
+            review: {
+                zh: { label: '核验代理', description: '适合审查、核验、回归、diff 检查' },
+                en: { label: 'Review agent', description: 'Best for review, verification, regression, and diff checks' },
+            },
+            vision: {
+                zh: { label: '视觉代理', description: '适合截图、OCR、UI 与浏览器任务' },
+                en: { label: 'Vision agent', description: 'Best for screenshots, OCR, UI, and browser tasks' },
+            },
+            automation: {
+                zh: { label: '自动化代理', description: '适合脚本、MCP、守护进程、路由和系统任务' },
+                en: { label: 'Automation agent', description: 'Best for scripts, MCP, daemons, routing, and system tasks' },
+            },
+            docs: {
+                zh: { label: '文档代理', description: '适合总结、说明、文档整理和交付包装' },
+                en: { label: 'Docs agent', description: 'Best for summaries, docs, writeups, and delivery packaging' },
+            },
+            video: {
+                zh: { label: '视频代理', description: '适合 Remotion、宣传视频、短视频、渲染交付' },
+                en: { label: 'Video agent', description: 'Best for Remotion, promo videos, short-form content, and rendering delivery' },
+            },
+        };
         const appState = {
             sessions: [],
             selectedSessionId: null,
@@ -1396,6 +1805,7 @@
             showArchived: false,
             showInternal: false,
             sidebarView: 'threads',
+            locale: window.localStorage.getItem(LOCALE_STORAGE_KEY) || 'zh-CN',
             mode: 'auto',
             availableModes: [],
             agentMode: 'auto',
@@ -1442,6 +1852,147 @@
 
         let dialogConfirmHandler = null;
 
+        function resolveLocale(locale) {
+            const requested = String(locale || '').trim();
+            if (LOCALE_OPTIONS.some((item) => item.id === requested)) return requested;
+            if (requested.startsWith('zh')) return 'zh-CN';
+            return 'en-US';
+        }
+
+        function localePackKey(locale = appState.locale) {
+            return resolveLocale(locale).startsWith('zh') ? 'zh-CN' : 'en-US';
+        }
+
+        function currentLocale() {
+            return resolveLocale(appState.locale);
+        }
+
+        function t(key, vars = {}, locale = appState.locale) {
+            const pack = I18N[localePackKey(locale)] || I18N['en-US'];
+            const template = pack[key] || I18N['en-US'][key] || key;
+            return String(template).replace(/\{([a-zA-Z0-9_]+)\}/g, (_match, token) => {
+                return vars[token] === undefined || vars[token] === null ? '' : String(vars[token]);
+            });
+        }
+
+        function modeMeta(modeId) {
+            const key = localePackKey();
+            const entry = MODE_I18N[String(modeId || '').trim()] || null;
+            if (!entry) return null;
+            const values = entry[key === 'zh-CN' ? 'zh' : 'en'] || entry.en || entry.zh;
+            return values ? { ...values } : null;
+        }
+
+        function agentModeMeta(agentModeId) {
+            const key = localePackKey();
+            const entry = AGENT_MODE_I18N[String(agentModeId || '').trim()] || null;
+            if (!entry) return null;
+            const values = entry[key === 'zh-CN' ? 'zh' : 'en'] || entry.en || entry.zh;
+            return values ? { ...values } : null;
+        }
+
+        function persistLocale(locale) {
+            const resolved = resolveLocale(locale);
+            appState.locale = resolved;
+            window.localStorage.setItem(LOCALE_STORAGE_KEY, resolved);
+            document.documentElement.lang = resolved;
+            return resolved;
+        }
+
+        function renderLocaleOptions() {
+            const select = document.getElementById('settings-locale');
+            if (!select) return;
+            select.innerHTML = LOCALE_OPTIONS.map((item) => `
+                <option value="${escapeHtml(item.id)}">${escapeHtml(item.label)}</option>
+            `).join('');
+            select.value = resolveLocale(appState.locale);
+        }
+
+        function applyLocale() {
+            persistLocale(appState.locale);
+            document.title = t('document_title');
+            const idTextPairs = [
+                ['brand-title', 'brand_title'],
+                ['nav-new-thread-label', 'nav_new_thread'],
+                ['nav-automations-label', 'nav_automations'],
+                ['nav-skills-label', 'nav_skills'],
+                ['filter-active', 'filter_active'],
+                ['filter-archived', 'filter_archived'],
+                ['filter-internal', 'filter_internal'],
+                ['workspace-title', 'workspace_title_new'],
+                ['btn-open-settings', 'settings_button'],
+                ['btn-open-terminal', 'open_terminal'],
+                ['permission-mode-label', 'permission_web'],
+                ['btn-attach-file', 'attach_file'],
+                ['btn-stop-run', 'stop'],
+                ['btn-send', 'send'],
+                ['sidebar-dialog-title', 'dialog_edit_session'],
+                ['settings-dialog-title', 'settings_title'],
+                ['settings-locale-label', 'settings_locale'],
+                ['settings-dashscope-key-label', 'settings_dashscope_key'],
+                ['settings-opus-key-label', 'settings_opus_key'],
+                ['settings-dashscope-upstream-label', 'settings_dashscope_upstream'],
+                ['settings-opus-upstream-label', 'settings_opus_upstream'],
+                ['settings-router-health-label', 'settings_router_health'],
+                ['settings-proxy-health-label', 'settings_proxy_health'],
+                ['sidebar-dialog-cancel', 'cancel'],
+                ['sidebar-dialog-confirm', 'save'],
+                ['settings-dialog-cancel', 'cancel'],
+                ['settings-dialog-confirm', 'save_settings'],
+            ];
+            idTextPairs.forEach(([id, key]) => {
+                const node = document.getElementById(id);
+                if (node) node.textContent = t(key);
+            });
+            const titleInputLabel = document.querySelector('#sidebar-dialog-title-field span');
+            if (titleInputLabel) titleInputLabel.textContent = t('dialog_title');
+            const folderInputLabel = document.querySelector('#sidebar-dialog-folder-field span');
+            if (folderInputLabel) folderInputLabel.textContent = t('dialog_folder');
+            const folderInput = document.getElementById('sidebar-dialog-folder-input');
+            if (folderInput) folderInput.placeholder = t('dialog_folder_placeholder');
+            const composerInput = document.getElementById('composer-input');
+            if (composerInput) composerInput.placeholder = t('composer_placeholder');
+            const refreshButton = document.getElementById('btn-refresh');
+            if (refreshButton) refreshButton.title = t('refresh');
+            const newFolderButton = document.getElementById('btn-new-folder');
+            if (newFolderButton) newFolderButton.title = t('new_folder');
+            const settingsClose = document.getElementById('settings-dialog-close');
+            if (settingsClose) settingsClose.title = t('dialog_close');
+            const sidebarClose = document.getElementById('sidebar-dialog-close');
+            if (sidebarClose) sidebarClose.title = t('dialog_close');
+            document.getElementById('settings-dialog-message').textContent = t('settings_message');
+            const welcomeTitle = document.getElementById('welcome-title');
+            if (welcomeTitle) welcomeTitle.textContent = t('welcome_title');
+            const emptyPanel = document.querySelector('#session-groups .empty-panel');
+            if (emptyPanel && !appState.bootstrapLoaded && !appState.bootstrapCacheUsed) {
+                emptyPanel.textContent = t('loading_threads');
+            }
+            const composerNote = document.getElementById('composer-note');
+            if (composerNote && !appState.bootstrap) {
+                composerNote.textContent = t('composer_note');
+            }
+            const permissionMode = document.getElementById('permission-mode');
+            if (permissionMode) {
+                const optionLabels = {
+                    acceptEdits: t('permission_accept_edits'),
+                    default: t('permission_default'),
+                    bypassPermissions: t('permission_bypass'),
+                };
+                [...permissionMode.options].forEach((option) => {
+                    option.textContent = optionLabels[option.value] || option.value;
+                });
+            }
+            renderLocaleOptions();
+            updateSidebarChrome();
+            renderModelOptions();
+            renderAgentModeOptions();
+            updateWorkspaceTitle();
+            updateTopBadges();
+            renderSidebar({ force: true });
+            renderMessages();
+            renderAttachments();
+        }
+
         function escapeHtml(text) {
             return String(text || '')
                 .replaceAll('&', '&amp;')
@@ -1453,19 +2004,19 @@
             if (!isoText) return '';
             const date = new Date(isoText);
             if (Number.isNaN(date.getTime())) return '';
-            return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+            return date.toLocaleTimeString(currentLocale(), { hour: '2-digit', minute: '2-digit' });
         }
 
         function formatDateGroup(isoText) {
             const date = new Date(isoText || Date.now());
-            if (Number.isNaN(date.getTime())) return '更早';
+            if (Number.isNaN(date.getTime())) return t('date_earlier');
             const today = new Date();
             const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
             const yesterdayStart = new Date(todayStart);
             yesterdayStart.setDate(todayStart.getDate() - 1);
-            if (date >= todayStart) return '今天';
-            if (date >= yesterdayStart) return '昨天';
-            return '更早';
+            if (date >= todayStart) return t('date_today');
+            if (date >= yesterdayStart) return t('date_yesterday');
+            return t('date_earlier');
         }
 
         function summarizeSessionId(sessionId) {
@@ -1473,9 +2024,9 @@
         }
 
         function formatPermissionLabel(mode) {
-            if (mode === 'bypassPermissions') return '全权限';
-            if (mode === 'acceptEdits') return '自动接收改动';
-            return '默认确认模式';
+            if (mode === 'bypassPermissions') return t('permission_bypass');
+            if (mode === 'acceptEdits') return t('permission_accept_edits');
+            return t('permission_default');
         }
 
         function formatBytes(size) {
@@ -1609,6 +2160,9 @@
             appState.availableModes = payload.modes || appState.availableModes;
             appState.availableAgentModes = payload.agentModes || appState.availableAgentModes;
             appState.permissionMode = payload.webDefaults?.permissionMode || 'bypassPermissions';
+            if (payload.webDefaults?.locale) {
+                persistLocale(payload.webDefaults.locale);
+            }
             appState.bootstrapLoaded = !fromCache;
             appState.bootstrapCacheUsed = fromCache;
             const selectedSummary = appState.selectedSessionId
@@ -1703,16 +2257,16 @@
 
         function deriveLocalTopic(text) {
             const value = String(text || '').trim();
-            if (!value) return '通用对话';
-            if (/(桌面|desktop).{0,12}(截图|截屏|照片|图片|png|jpg|jpeg|webp|heic)/i.test(value)) return '桌面文件';
-            if (/(删除|清理|移除).{0,12}(截图|截屏|照片|图片|文件)/i.test(value)) return '桌面文件';
-            if (/(截图|截屏|图像|图片|视觉|vision|ui|界面|ocr|figma)/i.test(value)) return '视觉界面';
-            if (/(修复|排查|解决|debug|bug|报错|错误|异常|fix)/i.test(value)) return '故障修复';
-            if (/(审查|核验|review|audit|diff|变更|回归|检查)/i.test(value)) return '代码核验';
-            if (/(部署|发布|上线|deploy|release|gateway|launchagent)/i.test(value)) return '部署运维';
-            if (/(自动化|workflow|cron|脚本|agent|守护|路由)/i.test(value)) return '自动化流程';
-            if (/(文档|总结|汇总|写作|report|summary|paper|ppt|slide)/i.test(value)) return '文档整理';
-            return '通用对话';
+            if (!value) return t('topic_general');
+            if (/(桌面|desktop).{0,12}(截图|截屏|照片|图片|png|jpg|jpeg|webp|heic)/i.test(value)) return t('topic_desktop_files');
+            if (/(删除|清理|移除).{0,12}(截图|截屏|照片|图片|文件)/i.test(value)) return t('topic_desktop_files');
+            if (/(截图|截屏|图像|图片|视觉|vision|ui|界面|ocr|figma)/i.test(value)) return t('topic_visual');
+            if (/(修复|排查|解决|debug|bug|报错|错误|异常|fix)/i.test(value)) return t('topic_bugfix');
+            if (/(审查|核验|review|audit|diff|变更|回归|检查)/i.test(value)) return t('topic_code_review');
+            if (/(部署|发布|上线|deploy|release|gateway|launchagent)/i.test(value)) return t('topic_deploy');
+            if (/(自动化|workflow|cron|脚本|agent|守护|路由)/i.test(value)) return t('topic_automation');
+            if (/(文档|总结|汇总|写作|report|summary|paper|ppt|slide)/i.test(value)) return t('topic_docs');
+            return t('topic_general');
         }
 
         function deriveLocalTitle(text) {
@@ -1721,20 +2275,20 @@
                 .replace(/[“”"'`‘’]/g, '')
                 .replace(/\s+/g, ' ')
                 .trim();
-            if (!seed) return '新对话';
+            if (!seed) return t('workspace_title_new');
             seed = seed.split(/[。！？!?；;\n\r]/)[0].trim();
             seed = seed.replace(/^(请你|请先|请|帮我|麻烦你|麻烦|可以|能不能|现在|立刻|直接|继续|先|我想让你|我需要你|需要你|替我|给我|帮忙|你帮我)\s*/i, '').trim();
-            if (/(删除|清理|移除).{0,12}(桌面|desktop).{0,12}(截图|截屏|照片|图片)/i.test(seed)) return '删除桌面截屏照片';
-            if (/(修复|排查|解决).{0,20}(报错|错误|问题|bug)/i.test(seed)) return '修复关键报错';
-            if (/(审查|核验|review|audit).{0,20}(代码|diff|变更)/i.test(seed)) return '代码变更核验';
-            if (/(部署|发布|上线|deploy|release)/i.test(seed)) return '部署发布流程';
-            if (/(截图|截屏|图像|视觉|vision|界面|ui|ocr)/i.test(seed)) return '界面截图分析';
-            if (/^(create|new).{0,12}(file|文件)/i.test(seed)) return '文件创建请求';
-            if (/^(update|edit|modify).{0,12}(\/|file|文件)/i.test(seed)) return '文件更新请求';
+            if (/(删除|清理|移除).{0,12}(桌面|desktop).{0,12}(截图|截屏|照片|图片)/i.test(seed)) return t('title_delete_screenshots');
+            if (/(修复|排查|解决).{0,20}(报错|错误|问题|bug)/i.test(seed)) return t('title_fix_errors');
+            if (/(审查|核验|review|audit).{0,20}(代码|diff|变更)/i.test(seed)) return t('title_code_review');
+            if (/(部署|发布|上线|deploy|release)/i.test(seed)) return t('title_deploy');
+            if (/(截图|截屏|图像|视觉|vision|界面|ui|ocr)/i.test(seed)) return t('title_visual_analysis');
+            if (/^(create|new).{0,12}(file|文件)/i.test(seed)) return t('title_file_create');
+            if (/^(update|edit|modify).{0,12}(\/|file|文件)/i.test(seed)) return t('title_file_update');
             if (/[\u4e00-\u9fff]/.test(seed)) {
-                return seed.replace(/\s+/g, '').slice(0, 16) || '新对话';
+                return seed.replace(/\s+/g, '').slice(0, 16) || t('workspace_title_new');
             }
-            return seed.split(/\s+/).slice(0, 4).join(' ') || '新对话';
+            return seed.split(/\s+/).slice(0, 4).join(' ') || t('workspace_title_new');
         }
 
         function titleDisplayWeight(input) {
@@ -1745,7 +2299,7 @@
 
         function truncateSidebarTitle(title, weightLimit = 16) {
             const chars = Array.from(String(title || '').trim());
-            if (!chars.length) return '新对话';
+            if (!chars.length) return t('workspace_title_new');
             let weight = 0;
             let index = 0;
             while (index < chars.length) {
@@ -1836,10 +2390,10 @@
             const probes = `${title}\n${preview}\n${specialRole}`;
             if (/gateway|cron|launchagent|workflow|scheduler|feishu/i.test(probes)) return 'Operations';
             if (/claude\s*code|claude\s*console/i.test(probes)) return 'Claude Code';
-            if (topic && topic !== '通用对话') return topic;
+            if (topic && topic !== t('topic_general')) return topic;
             const token = String(displaySessionTitle(sessionLike) || '').trim().split(/[\s/]+/)[0] || '';
             if (/^[a-z0-9._-]{1,18}$/i.test(token)) return token;
-            return '未归类';
+            return t('uncategorized');
         }
 
         function normalizeSessionSummary(sessionLike) {
@@ -1873,10 +2427,10 @@
             if (!hasRenderableState) return null;
             return {
                 sessionId,
-                title: title || '新对话',
-                topic: topic || '通用对话',
+                title: title || t('workspace_title_new'),
+                topic: topic || t('topic_general'),
                 folder: deriveLocalFolder({ ...(summary || {}), title, topic, preview }),
-                preview: preview || '等待第一条回复…',
+                preview: preview || t('waiting_first_reply'),
                 updatedAt: new Date().toISOString(),
                 model: summary.model || '',
                 archived: false,
@@ -2022,15 +2576,15 @@
             if (expanded || value.length <= safeLimit) {
                 return `
                     <div class="${escapeHtml(className)}">${escapeHtml(value)}</div>
-                    ${value.length > safeLimit ? `<div class="block-toggle-row"><button class="message-inline-btn" type="button" data-collapse-block="${escapeHtml(blockStateKey(messageId, kind, index))}">收起</button><span class="block-meta">${escapeHtml(formatCompactCount(value.length))} 字</span></div>` : ''}
+                    ${value.length > safeLimit ? `<div class="block-toggle-row"><button class="message-inline-btn" type="button" data-collapse-block="${escapeHtml(blockStateKey(messageId, kind, index))}">${escapeHtml(t('collapse'))}</button><span class="block-meta">${escapeHtml(t('char_count', { count: formatCompactCount(value.length) }))}</span></div>` : ''}
                 `;
             }
             return `
                 <div class="${escapeHtml(className)}">${escapeHtml(value.slice(0, safeLimit))}</div>
                 <div class="block-fade-mask"></div>
                 <div class="block-toggle-row">
-                    <button class="message-inline-btn" type="button" data-expand-block="${escapeHtml(blockStateKey(messageId, kind, index))}">展开全部</button>
-                    <span class="block-meta">已折叠 ${escapeHtml(formatCompactCount(value.length))} 字</span>
+                    <button class="message-inline-btn" type="button" data-expand-block="${escapeHtml(blockStateKey(messageId, kind, index))}">${escapeHtml(t('expand_all'))}</button>
+                    <span class="block-meta">${escapeHtml(t('collapsed_chars', { count: formatCompactCount(value.length) }))}</span>
                 </div>
             `;
         }
@@ -2039,9 +2593,9 @@
             const select = document.getElementById('model-route');
             const options = Array.isArray(appState.availableModes) && appState.availableModes.length
                 ? appState.availableModes
-                : [{ id: 'auto', label: 'Auto', description: '按任务自动路由' }];
+                : [{ id: 'auto', label: 'Auto', description: modeMeta('auto')?.description || '' }];
             select.innerHTML = options.map((item) => `
-                <option value="${escapeHtml(item.id)}">${escapeHtml(item.label)}</option>
+                <option value="${escapeHtml(item.id)}">${escapeHtml(modeMeta(item.id)?.label || item.label || item.id)}</option>
             `).join('');
             select.value = options.some((item) => item.id === appState.mode) ? appState.mode : 'auto';
         }
@@ -2050,9 +2604,9 @@
             const select = document.getElementById('agent-mode');
             const options = Array.isArray(appState.availableAgentModes) && appState.availableAgentModes.length
                 ? appState.availableAgentModes
-                : [{ id: 'auto', label: 'Auto', description: '自动使用 agents' }];
+                : [{ id: 'auto', label: 'Auto', description: agentModeMeta('auto')?.description || '' }];
             select.innerHTML = options.map((item) => `
-                <option value="${escapeHtml(item.id)}">${escapeHtml(item.label)}</option>
+                <option value="${escapeHtml(item.id)}">${escapeHtml(agentModeMeta(item.id)?.label || item.label || item.id)}</option>
             `).join('');
             select.value = options.some((item) => item.id === appState.agentMode) ? appState.agentMode : 'auto';
         }
@@ -2066,10 +2620,10 @@
             }
             list.style.display = 'flex';
             list.innerHTML = appState.attachments.map((item, index) => `
-                <span class="attachment-chip">
-                    <span>${escapeHtml(item.name || '附件')}</span>
+                    <span class="attachment-chip">
+                    <span>${escapeHtml(item.name || t('generic_attachment'))}</span>
                     <span>${escapeHtml(formatBytes(item.size))}</span>
-                    <button type="button" data-attachment-index="${index}">移除</button>
+                    <button type="button" data-attachment-index="${index}">${escapeHtml(t('remove_attachment'))}</button>
                 </span>
             `).join('');
             list.querySelectorAll('[data-attachment-index]').forEach((button) => {
@@ -2122,14 +2676,14 @@
             document.getElementById('nav-automations').classList.toggle('active', appState.sidebarView === 'automations');
             document.getElementById('nav-skills').classList.toggle('active', appState.sidebarView === 'skills');
             document.getElementById('sidebar-section-label').textContent =
-                isThreads ? '线程' : appState.sidebarView === 'automations' ? '自动化' : '技能';
+                isThreads ? t('section_threads') : appState.sidebarView === 'automations' ? t('section_automations') : t('section_skills');
             document.getElementById('thread-filter-bar').style.display = isThreads ? 'flex' : 'none';
             document.getElementById('session-search').placeholder =
                 isThreads
-                    ? '搜索对话标题或内容'
+                    ? t('search_threads')
                     : appState.sidebarView === 'automations'
-                        ? '搜索自动化名称或提示词'
-                        : '搜索技能、代理或 MCP';
+                        ? t('search_automations')
+                        : t('search_skills');
         }
 
         function visibleAutomations() {
@@ -2170,9 +2724,9 @@
             const activeRunCount = activeRuns.length;
             const tmuxCount = Number(tmuxState.sessionCount || 0);
             const badgeMap = [
-                ['badge-claude', claudeOk, payload.claude?.version || 'Claude'],
-                ['badge-router', routerOk, '路由'],
-                ['badge-proxy', proxyOk, '代理'],
+                ['badge-claude', claudeOk, payload.claude?.version || t('label_claude_fallback')],
+                ['badge-router', routerOk, localePackKey() === 'zh-CN' ? '路由' : 'Router'],
+                ['badge-proxy', proxyOk, localePackKey() === 'zh-CN' ? '代理' : 'Proxy'],
             ];
             badgeMap.forEach(([id, ok, label]) => {
                 const node = document.getElementById(id);
@@ -2186,34 +2740,48 @@
             const imageRoute = payload.routerConfig?.image || 'dashscope-codingplan,kimi-k2.5';
             document.getElementById('current-model-badge').textContent =
                 appState.mode === 'auto' || !selectedMode
-                    ? `Auto · 主链 ${defaultRoute} · 视觉 ${imageRoute}`
-                    : `当前模型 ${selectedMode.label} · ${selectedMode.description}`;
+                    ? t('auto_model_badge', { defaultRoute, imageRoute })
+                    : t('current_model_badge', {
+                        label: modeMeta(selectedMode.id)?.label || selectedMode.label,
+                        description: modeMeta(selectedMode.id)?.description || selectedMode.description,
+                    });
             document.getElementById('current-agent-badge').textContent =
-                selectedAgentMode ? `${selectedAgentMode.label} · ${selectedAgentMode.description}` : '关闭协作';
-            document.getElementById('active-runs-badge').textContent = `活跃协作 ${activeRunCount}`;
-            document.getElementById('tmux-badge').textContent = `tmux ${tmuxCount}`;
+                selectedAgentMode ? t('current_agent_badge', {
+                    label: agentModeMeta(selectedAgentMode.id)?.label || selectedAgentMode.label,
+                    description: agentModeMeta(selectedAgentMode.id)?.description || selectedAgentMode.description,
+                }) : t('collaboration_off');
+            document.getElementById('active-runs-badge').textContent = t('active_collab', { count: activeRunCount });
+            document.getElementById('tmux-badge').textContent = t('tmux_count', { count: tmuxCount });
             document.getElementById('run-status-pill').textContent =
                 appState.isStreaming
-                    ? `流式响应中${activeRunCount ? ` · ${activeRunCount}` : ''}`
+                    ? t('run_status_streaming', { suffix: activeRunCount ? ` · ${activeRunCount}` : '' })
                     : activeRunCount
-                        ? `运行中 ${activeRunCount}`
-                        : '空闲';
+                        ? t('run_status_running', { count: activeRunCount })
+                        : t('run_status_idle');
             document.getElementById('composer-note').textContent =
-                `Enter 发送，Shift+Enter 换行，输入法候选时不会误发送；权限为 ${formatPermissionLabel(appState.permissionMode)}；协作模式为 ${selectedAgentMode?.label || '关闭协作'}`
-                + (appState.attachments.length ? ` · 已附 ${appState.attachments.length} 个文件` : '')
-                + '。';
+                t('composer_note_detail', {
+                    permission: formatPermissionLabel(appState.permissionMode),
+                    agent: agentModeMeta(selectedAgentMode?.id || '')?.label || selectedAgentMode?.label || t('collaboration_off'),
+                    attachmentSuffix: appState.attachments.length ? t('attachment_suffix', { count: appState.attachments.length }) : '',
+                });
         }
 
         function updateWorkspaceTitle() {
             const summary = appState.currentSession?.session || null;
             const displayTitle = displaySessionTitle(summary);
-            document.getElementById('workspace-title').textContent = displayTitle || '新对话';
+            document.getElementById('workspace-title').textContent = displayTitle || t('workspace_title_new');
             if (summary?.sessionId) {
-                document.getElementById('workspace-subtitle').textContent = `${summary.topic || '通用对话'} · 会话 ${summarizeSessionId(summary.sessionId)} · ${summary.model || 'Claude Code'}`;
+                document.getElementById('workspace-subtitle').textContent = t('conversation_subtitle', {
+                    topic: summary.topic || t('topic_general'),
+                    sessionId: summarizeSessionId(summary.sessionId),
+                    model: summary.model || 'Claude Code',
+                });
             } else if (summary && displayTitle) {
-                document.getElementById('workspace-subtitle').textContent = `${summary?.topic || deriveLocalTopic(displayTitle)} · 草稿会话`;
+                document.getElementById('workspace-subtitle').textContent = t('draft_subtitle', {
+                    topic: summary?.topic || deriveLocalTopic(displayTitle),
+                });
             } else {
-                document.getElementById('workspace-subtitle').textContent = 'Claude Code 中文工作台';
+                document.getElementById('workspace-subtitle').textContent = t('workspace_subtitle_default');
             }
         }
 
@@ -2251,7 +2819,7 @@
         function folderSortWeight(label) {
             if (label === 'Operations') return -20;
             if (label === 'Claude Code') return -10;
-            if (label === '未归类') return 20;
+            if (label === t('uncategorized')) return 20;
             return 0;
         }
 
@@ -2301,7 +2869,7 @@
                 if (appState.bootstrapLoading && !items.length) {
                     if (force || renderSignature !== appState.sidebarRenderSignature) {
                         appState.sidebarRenderSignature = renderSignature;
-                        container.innerHTML = '<div class="empty-panel">正在同步自动化列表...</div>';
+                        container.innerHTML = `<div class="empty-panel">${escapeHtml(t('loading_automations'))}</div>`;
                     }
                     return;
                 }
@@ -2310,16 +2878,16 @@
                         ${items.map((item) => `
                             <div class="library-card compact-row">
                                 <div class="library-card-top">
-                                    <div class="session-title">${escapeHtml(item.name || '未命名自动化')}</div>
+                                    <div class="session-title">${escapeHtml(item.name || t('unnamed_automation'))}</div>
                                     <div class="session-action-row">
-                                        <button class="session-action-btn" title="打开位置" data-reveal-path="${escapeHtml(item.path || '')}">↗</button>
-                                        ${item.canDelete === false ? '' : `<button class="session-action-btn" title="删除自动化" data-delete-automation="${escapeHtml(item.id || '')}" data-delete-source="${escapeHtml(item.deleteKind || item.sourceKind || 'codex-automation')}">⌫</button>`}
+                                        <button class="session-action-btn" title="${escapeHtml(t('reveal_location'))}" data-reveal-path="${escapeHtml(item.path || '')}">↗</button>
+                                        ${item.canDelete === false ? '' : `<button class="session-action-btn" title="${escapeHtml(t('delete_automation'))}" data-delete-automation="${escapeHtml(item.id || '')}" data-delete-source="${escapeHtml(item.deleteKind || item.sourceKind || 'codex-automation')}">⌫</button>`}
                                     </div>
                                 </div>
                             </div>
                         `).join('')}
                     </div>
-                ` : '<div class="empty-panel">没有可显示的自动化。</div>';
+                ` : `<div class="empty-panel">${escapeHtml(t('empty_automations'))}</div>`;
                 if (force || renderSignature !== appState.sidebarRenderSignature) {
                     appState.sidebarRenderSignature = renderSignature;
                     container.innerHTML = html;
@@ -2342,25 +2910,25 @@
                 if (appState.bootstrapLoading && !total) {
                     if (force || renderSignature !== appState.sidebarRenderSignature) {
                         appState.sidebarRenderSignature = renderSignature;
-                        container.innerHTML = '<div class="empty-panel">正在同步技能、Agents 和 MCP...</div>';
+                        container.innerHTML = `<div class="empty-panel">${escapeHtml(t('loading_skills'))}</div>`;
                     }
                     return;
                 }
                 const renderCards = (items, type) => items.map((item) => `
                     <div class="library-card compact-row">
                         <div class="library-card-top">
-                            <div class="session-title">${escapeHtml(item.name || '未命名')}</div>
-                            ${item.path ? `<button class="session-action-btn" title="打开位置" data-reveal-path="${escapeHtml(item.path || '')}">↗</button>` : ''}
+                            <div class="session-title">${escapeHtml(item.name || t('unnamed_item'))}</div>
+                            ${item.path ? `<button class="session-action-btn" title="${escapeHtml(t('reveal_location'))}" data-reveal-path="${escapeHtml(item.path || '')}">↗</button>` : ''}
                         </div>
                     </div>
                 `).join('');
                 const html = total ? `
                     <div class="library-list">
-                        ${agents.length ? `<div class="group-block"><div class="group-label">Agents</div>${renderCards(agents, 'agent')}</div>` : ''}
-                        ${skills.length ? `<div class="group-block"><div class="group-label">Skills</div>${renderCards(skills, 'skill')}</div>` : ''}
+                        ${agents.length ? `<div class="group-block"><div class="group-label">${escapeHtml(t('agents_heading'))}</div>${renderCards(agents, 'agent')}</div>` : ''}
+                        ${skills.length ? `<div class="group-block"><div class="group-label">${escapeHtml(t('skills_heading'))}</div>${renderCards(skills, 'skill')}</div>` : ''}
                         ${mcps.length ? `<div class="group-block"><div class="group-label">MCP</div>${renderCards(mcps, 'mcp')}</div>` : ''}
                     </div>
-                ` : '<div class="empty-panel">没有可显示的技能、代理或 MCP。</div>';
+                ` : `<div class="empty-panel">${escapeHtml(t('empty_skills'))}</div>`;
                 if (force || renderSignature !== appState.sidebarRenderSignature) {
                     appState.sidebarRenderSignature = renderSignature;
                     container.innerHTML = html;
@@ -2377,13 +2945,13 @@
                     loading: true,
                     cache: !!appState.bootstrapCacheUsed,
                 });
-                if (force || loadingSignature !== appState.sidebarRenderSignature) {
-                    appState.sidebarRenderSignature = loadingSignature;
-                    container.innerHTML = `<div class="empty-panel">${appState.bootstrapCacheUsed ? '正在刷新最新会话...' : '正在同步会话历史...'}</div>`;
+                    if (force || loadingSignature !== appState.sidebarRenderSignature) {
+                        appState.sidebarRenderSignature = loadingSignature;
+                        container.innerHTML = `<div class="empty-panel">${escapeHtml(appState.bootstrapCacheUsed ? t('refreshing_sessions') : t('syncing_sessions'))}</div>`;
+                    }
+                    container.scrollTop = previousScrollTop;
+                    return;
                 }
-                container.scrollTop = previousScrollTop;
-                return;
-            }
             if (!sessions.length) {
                 const emptySignature = JSON.stringify({
                     view: 'threads',
@@ -2394,7 +2962,7 @@
                 });
                 if (force || emptySignature !== appState.sidebarRenderSignature) {
                     appState.sidebarRenderSignature = emptySignature;
-                    container.innerHTML = `<div class="empty-panel">${appState.showArchived ? '还没有已归档对话。' : '还没有可见对话。'}</div>`;
+                    container.innerHTML = `<div class="empty-panel">${escapeHtml(appState.showArchived ? t('empty_archived') : t('empty_sessions'))}</div>`;
                 }
                 container.scrollTop = previousScrollTop;
                 return;
@@ -2413,7 +2981,7 @@
                     items: group.items.map((item) => ({
                         id: item.sessionId || '',
                         updatedAt: item.updatedAt || '',
-                        title: truncateSidebarTitle(displaySessionTitle(item) || '新对话'),
+                        title: truncateSidebarTitle(displaySessionTitle(item) || t('workspace_title_new')),
                         pinned: !!item.pinned,
                         archived: !!item.archived,
                         fixed: !!item.fixed,
@@ -2425,18 +2993,18 @@
             const html = sessions.map((group) => `
                 <div class="group-block folder-block">
                     <div class="folder-header">
-                        <button class="folder-toggle-btn" type="button" data-folder-toggle="${escapeHtml(group.label)}" title="${group.collapsed ? '展开文件夹' : '收起文件夹'}">
+                        <button class="folder-toggle-btn" type="button" data-folder-toggle="${escapeHtml(group.label)}" title="${escapeHtml(group.collapsed ? t('expand_folder') : t('collapse_folder'))}">
                             <span class="folder-chevron">${group.collapsed ? '▸' : '▾'}</span>
                             <span class="folder-name">${escapeHtml(group.label)}</span>
                         </button>
-                        ${group.label === 'Operations' ? '' : `<button class="session-action-btn folder-edit-btn" type="button" data-folder-rename="${escapeHtml(group.label)}" title="改文件夹标题">✎</button>`}
+                        ${group.label === 'Operations' ? '' : `<button class="session-action-btn folder-edit-btn" type="button" data-folder-rename="${escapeHtml(group.label)}" title="${escapeHtml(t('rename_folder_button'))}">✎</button>`}
                     </div>
                     <div class="session-list ${group.collapsed ? 'is-collapsed' : ''}">
                         ${group.items.length ? group.items.map((item) => {
                             const busyAction = appState.sessionActionPending[item.sessionId] || '';
                             const isLoading = appState.sessionLoadingId === item.sessionId;
                             const busyDisabled = busyAction ? 'disabled' : '';
-                            const fullTitle = displaySessionTitle(item) || '新对话';
+                            const fullTitle = displaySessionTitle(item) || t('workspace_title_new');
                             const sidebarTitle = truncateSidebarTitle(fullTitle);
                             return `
                                 <div class="session-item ${item.sessionId === appState.selectedSessionId ? 'active' : ''} ${item.pending ? 'pending' : ''} ${isLoading ? 'loading' : ''}" data-session-id="${escapeHtml(item.sessionId)}">
@@ -2446,16 +3014,16 @@
                                         </div>
                                         ${item.sessionId ? `
                                             <div class="session-action-row">
-                                                <button class="session-action-btn ${busyAction === 'pin' ? 'is-busy' : ''}" title="${item.pinned ? '取消置顶' : '置顶'}" data-action="pin" data-session-id="${escapeHtml(item.sessionId)}" ${busyDisabled}>${busyAction === 'pin' ? '…' : item.pinned ? '★' : '☆'}</button>
-                                                <button class="session-action-btn ${busyAction === 'rename' ? 'is-busy' : ''}" title="改标题和文件夹" data-action="rename" data-session-id="${escapeHtml(item.sessionId)}" ${busyDisabled}>${busyAction === 'rename' ? '…' : '✎'}</button>
-                                                <button class="session-action-btn ${busyAction === 'archive' ? 'is-busy' : ''}" title="${item.archived ? '恢复' : '归档'}" data-action="archive" data-session-id="${escapeHtml(item.sessionId)}" ${busyDisabled}>${busyAction === 'archive' ? '…' : item.archived ? '↺' : '⌂'}</button>
-                                                ${item.fixed ? '<span class="session-action-btn" aria-hidden="true" style="visibility:hidden;">⌫</span>' : `<button class="session-action-btn ${busyAction === 'delete' ? 'is-busy' : ''}" title="删除" data-action="delete" data-session-id="${escapeHtml(item.sessionId)}" ${busyDisabled}>${busyAction === 'delete' ? '…' : '⌫'}</button>`}
+                                                <button class="session-action-btn ${busyAction === 'pin' ? 'is-busy' : ''}" title="${escapeHtml(item.pinned ? t('unpin') : t('pin'))}" data-action="pin" data-session-id="${escapeHtml(item.sessionId)}" ${busyDisabled}>${busyAction === 'pin' ? '…' : item.pinned ? '★' : '☆'}</button>
+                                                <button class="session-action-btn ${busyAction === 'rename' ? 'is-busy' : ''}" title="${escapeHtml(t('rename_title_action'))}" data-action="rename" data-session-id="${escapeHtml(item.sessionId)}" ${busyDisabled}>${busyAction === 'rename' ? '…' : '✎'}</button>
+                                                <button class="session-action-btn ${busyAction === 'archive' ? 'is-busy' : ''}" title="${escapeHtml(item.archived ? t('restore') : t('archive'))}" data-action="archive" data-session-id="${escapeHtml(item.sessionId)}" ${busyDisabled}>${busyAction === 'archive' ? '…' : item.archived ? '↺' : '⌂'}</button>
+                                                ${item.fixed ? '<span class="session-action-btn" aria-hidden="true" style="visibility:hidden;">⌫</span>' : `<button class="session-action-btn ${busyAction === 'delete' ? 'is-busy' : ''}" title="${escapeHtml(t('delete'))}" data-action="delete" data-session-id="${escapeHtml(item.sessionId)}" ${busyDisabled}>${busyAction === 'delete' ? '…' : '⌫'}</button>`}
                                             </div>
                                         ` : '<div class="session-action-row"></div>'}
                                     </div>
                                 </div>
                             `;
-                        }).join('') : '<div class="empty-panel">文件夹里还没有会话。</div>'}
+                        }).join('') : `<div class="empty-panel">${escapeHtml(t('empty_folder'))}</div>`}
                     </div>
                 </div>
             `).join('');
@@ -2596,19 +3164,22 @@
             const dialog = document.getElementById('settings-dialog');
             dialog.classList.add('is-open');
             dialog.setAttribute('aria-hidden', 'false');
-            setSettingsStatus('正在读取当前配置...');
+            setSettingsStatus(t('loading_settings'));
             const payload = await apiJson('/claude-console/settings');
             const values = payload.values || {};
+            appState.locale = resolveLocale(values.CLAUDE_CONSOLE_LOCALE || appState.locale);
             document.getElementById('settings-dashscope-key').value = values.DASHSCOPE_CODINGPLAN_API_KEY || '';
             document.getElementById('settings-opus-key').value = values.AICODELINK_OPUS46_API_KEY || '';
             document.getElementById('settings-dashscope-upstream').value = values.CLAUDE_DASHSCOPE_PROXY_UPSTREAM || '';
             document.getElementById('settings-opus-upstream').value = values.CLAUDE_OPUS_PROXY_UPSTREAM || '';
             document.getElementById('settings-router-health').value = values.CLAUDE_ROUTER_HEALTH_URL || '';
             document.getElementById('settings-proxy-health').value = values.CLAUDE_PROXY_HEALTH_URL || '';
+            renderLocaleOptions();
+            document.getElementById('settings-locale').value = currentLocale();
             document.getElementById('settings-dialog-env-path').textContent = payload.envFile
-                ? `当前写入文件：${payload.envFile}`
+                ? t('env_file_label', { path: payload.envFile })
                 : '';
-            setSettingsStatus(payload.restartRequired ? '保存后需重启 Claude Code.app，新的模型密钥与上游地址才会完整生效。' : '');
+            setSettingsStatus(payload.restartRequired ? t('settings_restart_required') : t('current_config_loaded'));
             window.setTimeout(() => document.getElementById('settings-dashscope-key').focus(), 30);
         }
 
@@ -2619,8 +3190,9 @@
             const cancel = document.getElementById('settings-dialog-cancel');
             confirm.disabled = true;
             cancel.disabled = true;
-            setSettingsStatus('正在保存配置...');
+            setSettingsStatus(t('saving_settings'));
             try {
+                const nextLocale = resolveLocale(document.getElementById('settings-locale').value || appState.locale);
                 const payload = await apiJson('/claude-console/settings', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -2632,10 +3204,13 @@
                             CLAUDE_OPUS_PROXY_UPSTREAM: document.getElementById('settings-opus-upstream').value.trim(),
                             CLAUDE_ROUTER_HEALTH_URL: document.getElementById('settings-router-health').value.trim(),
                             CLAUDE_PROXY_HEALTH_URL: document.getElementById('settings-proxy-health').value.trim(),
+                            CLAUDE_CONSOLE_LOCALE: nextLocale,
                         },
                     }),
                 });
-                setSettingsStatus(payload.msg || '设置已保存。');
+                persistLocale(nextLocale);
+                applyLocale();
+                setSettingsStatus(t('settings_saved'));
                 window.setTimeout(() => closeSettingsDialog(), 380);
             } catch (error) {
                 setSettingsStatus(error instanceof Error ? error.message : String(error), true);
@@ -2649,9 +3224,9 @@
 
         function openSidebarDialog({
             mode = '',
-            heading = '编辑会话',
+            heading = t('dialog_edit_session'),
             message = '',
-            confirmLabel = '保存',
+            confirmLabel = t('save'),
             destructive = false,
             titleValue = '',
             folderValue = '',
@@ -2711,9 +3286,11 @@
             const session = appState.sessions.find((item) => item.sessionId === sessionId);
             openSidebarDialog({
                 mode: 'rename-session',
-                heading: '编辑会话',
-                message: '可以同时调整标题和文件夹。留空文件夹后，下次会按内容自动归类。',
-                confirmLabel: '保存',
+                heading: t('dialog_edit_session'),
+                message: localePackKey() === 'zh-CN'
+                    ? '可以同时调整标题和文件夹。留空文件夹后，下次会按内容自动归类。'
+                    : 'You can update both the thread title and folder. Leave the folder empty to auto-classify on the next refresh.',
+                confirmLabel: t('save'),
                 titleValue: displaySessionTitle(session || {}),
                 folderValue: String(session?.folder || ''),
                 confirmHandler: async ({ title, folder }) => {
@@ -2729,9 +3306,9 @@
             const session = appState.sessions.find((item) => item.sessionId === sessionId);
             openSidebarDialog({
                 mode: 'delete-session',
-                heading: '删除会话',
-                message: `删除会话“${displaySessionTitle(session || {}) || '未命名会话'}”后，会被移到回收区。`,
-                confirmLabel: '删除',
+                heading: t('delete_session_heading'),
+                message: t('delete_session_message', { title: displaySessionTitle(session || {}) || t('unnamed_session') }),
+                confirmLabel: t('delete'),
                 destructive: true,
                 showTitleField: false,
                 showFolderField: false,
@@ -2746,9 +3323,9 @@
             const item = items.find((entry) => String(entry.id || '') === String(automationId || ''));
             openSidebarDialog({
                 mode: 'delete-automation',
-                heading: '删除自动化',
-                message: `删除自动化“${item?.name || automationId}”后会移到回收区或从外部调度里移除。`,
-                confirmLabel: '删除',
+                heading: t('delete_automation_heading'),
+                message: t('delete_automation_message', { title: item?.name || automationId }),
+                confirmLabel: t('delete'),
                 destructive: true,
                 showTitleField: false,
                 showFolderField: false,
@@ -2801,7 +3378,7 @@
         async function createFolder(folderName) {
             const normalized = normalizeFolderName(folderName);
             if (!normalized) {
-                throw new Error('请输入文件夹名称');
+                throw new Error(t('enter_folder_name'));
             }
             registerFolderLocally(normalized);
             renderSidebar();
@@ -2826,7 +3403,7 @@
             const oldNormalized = normalizeFolderName(oldName);
             const newNormalized = normalizeFolderName(newName);
             if (!oldNormalized || !newNormalized) {
-                throw new Error('请输入文件夹名称');
+                throw new Error(t('enter_folder_name'));
             }
             const backupRegistry = [...appState.folderRegistry];
             const backupSessions = deepClone(appState.sessions);
@@ -2865,9 +3442,9 @@
         function promptCreateFolder() {
             openSidebarDialog({
                 mode: 'create-folder',
-                heading: '新建文件夹',
-                message: '文件夹创建后会长期保留，之后可以把会话移动或重命名到这里。',
-                confirmLabel: '创建',
+                heading: t('folder_create_heading'),
+                message: t('folder_create_message'),
+                confirmLabel: t('create'),
                 showTitleField: false,
                 showFolderField: true,
                 confirmHandler: async ({ folder }) => {
@@ -2879,9 +3456,9 @@
         function promptRenameFolder(folderName) {
             openSidebarDialog({
                 mode: 'rename-folder',
-                heading: '改文件夹标题',
-                message: '会把当前文件夹里的会话一起迁到新标题下。',
-                confirmLabel: '保存',
+                heading: t('rename_folder_heading'),
+                message: t('rename_folder_message'),
+                confirmLabel: t('save'),
                 showTitleField: false,
                 showFolderField: true,
                 folderValue: folderName,
@@ -2970,8 +3547,8 @@
             const thinkingHtml = thinkingBlocks.length ? `
                 <div class="thinking-wrap ${isOpen ? 'is-open' : ''}" data-thinking-message-id="${escapeHtml(messageId || '')}">
                     <button class="thinking-toggle-btn" type="button" data-toggle-thinking="${escapeHtml(messageId || '')}">
-                        ${isOpen ? '收起思考过程' : '展开思考过程'}
-                        <span class="block-meta">${escapeHtml(formatCompactCount(thinkingCharCount))} 字</span>
+                        ${isOpen ? escapeHtml(t('thinking_collapse')) : escapeHtml(t('thinking_expand'))}
+                        <span class="block-meta">${escapeHtml(t('char_count', { count: formatCompactCount(thinkingCharCount) }))}</span>
                     </button>
                     ${isOpen ? `<div class="thinking-body">${escapeHtml(thinkingBlocks.map((item) => item.text).join('\n\n'))}</div>` : ''}
                 </div>
@@ -2992,8 +3569,8 @@
                             return `
                                 <div class="tool-card">
                                     <div class="tool-card-top">
-                                        <div class="tool-label">工具调用</div>
-                                        <div class="tool-body">${escapeHtml(block.name || '工具')}</div>
+                                        <div class="tool-label">${escapeHtml(t('tool_call'))}</div>
+                                        <div class="tool-body">${escapeHtml(block.name || t('label_tool'))}</div>
                                     </div>
                                     ${renderLargeTextBlock(JSON.stringify(block.input || {}, null, 2), {
                                         messageId,
@@ -3008,8 +3585,8 @@
                         return `
                             <div class="tool-card">
                                 <div class="tool-card-top">
-                                    <div class="tool-label">工具结果</div>
-                                    <div class="tool-body">${block.isError ? '错误' : '完成'}</div>
+                                    <div class="tool-label">${escapeHtml(t('label_tool'))}</div>
+                                    <div class="tool-body">${escapeHtml(block.isError ? t('tool_error') : t('tool_done'))}</div>
                                 </div>
                                 ${renderLargeTextBlock(block.text || '', {
                                     messageId,
@@ -3039,7 +3616,7 @@
                 } else if (block.type === 'tool_result' && block.text) {
                     lines.push(String(block.text).trim());
                 } else if (block.type === 'tool_use') {
-                    lines.push(`[工具调用] ${block.name || '工具'}`);
+                    lines.push(`[${t('tool_call')}] ${block.name || t('label_tool')}`);
                     if (block.input) {
                         lines.push(JSON.stringify(block.input, null, 2));
                     }
@@ -3116,10 +3693,10 @@
             messagesNode.style.display = 'grid';
             const windowBanner = visibleState.hiddenBefore > 0 ? `
                 <div class="message-window-banner">
-                    <div class="message-window-meta">已显示最近 ${escapeHtml(String(visibleState.windowSize))} / ${escapeHtml(String(visibleState.total))} 条消息</div>
+                    <div class="message-window-meta">${escapeHtml(t('showing_recent', { window: String(visibleState.windowSize), total: String(visibleState.total) }))}</div>
                     <div class="message-window-actions">
-                        <button class="message-inline-btn" type="button" data-load-more-messages="${escapeHtml(String(MESSAGE_WINDOW_STEP))}">加载更早 ${escapeHtml(String(MESSAGE_WINDOW_STEP))} 条</button>
-                        <button class="message-inline-btn" type="button" data-load-all-messages="1">显示全部</button>
+                        <button class="message-inline-btn" type="button" data-load-more-messages="${escapeHtml(String(MESSAGE_WINDOW_STEP))}">${escapeHtml(t('load_earlier', { count: String(MESSAGE_WINDOW_STEP) }))}</button>
+                        <button class="message-inline-btn" type="button" data-load-all-messages="1">${escapeHtml(t('show_all'))}</button>
                     </div>
                 </div>
             ` : '';
@@ -3127,17 +3704,17 @@
                 const role = message.role || 'assistant';
                 const blocks = Array.isArray(message.blocks) ? message.blocks : [];
                 const label = role === 'assistant'
-                    ? `${message.model || 'Claude'} · ${formatTime(message.timestamp)}`
+                    ? `${message.model || t('label_claude_fallback')} · ${formatTime(message.timestamp)}`
                     : role === 'tool'
-                        ? `工具结果 · ${formatTime(message.timestamp)}`
-                        : `你 · ${formatTime(message.timestamp)}`;
+                        ? `${t('label_tool')} · ${formatTime(message.timestamp)}`
+                        : `${t('label_you')} · ${formatTime(message.timestamp)}`;
                 return `
                     <div class="message-row ${escapeHtml(role)}">
                         <div class="message-card ${message.id === appState.focusedMessageId ? 'is-focused' : ''}" data-message-id="${escapeHtml(message.id || '')}" tabindex="0">
                             <div class="message-head">
                                 <div class="assistant-meta">${escapeHtml(label)}</div>
                                 <div class="message-action-row">
-                                    ${role !== 'user' ? `<button class="message-icon-btn" title="复制这条回复" data-copy-message="${escapeHtml(message.id || '')}">⧉</button>` : ''}
+                                    ${role !== 'user' ? `<button class="message-icon-btn" title="${escapeHtml(t('copy_reply'))}" data-copy-message="${escapeHtml(message.id || '')}">⧉</button>` : ''}
                                     <div class="message-time">${escapeHtml(message.id || '')}</div>
                                 </div>
                             </div>
@@ -3179,7 +3756,7 @@
             const response = await fetch(url, options);
             const payload = await response.json().catch(() => ({}));
             if (!response.ok || payload.ok === false) {
-                throw new Error(payload.msg || `请求失败（状态 ${response.status}）`);
+                throw new Error(payload.msg || t('request_failed', { status: response.status }));
             }
             return payload;
         }
@@ -3196,19 +3773,14 @@
             appState.lastFullBootstrapAt = Date.now();
             saveBootstrapCache(payload);
             if (!background || changed) {
-                renderModelOptions();
-                renderAgentModeOptions();
+                applyLocale();
                 document.getElementById('permission-mode').value = appState.permissionMode;
                 document.getElementById('model-route').value = appState.mode;
                 document.getElementById('agent-mode').value = appState.agentMode;
                 if (background && shouldDeferSidebarRender()) {
                     appState.sidebarRenderPending = true;
                     queueDeferredSidebarRender();
-                } else {
-                    renderSidebar({ force: !!background });
                 }
-                renderAttachments();
-                updateTopBadges();
             }
 
             const selectionStillExists = appState.selectedSessionId && appState.sessions.some((item) => item.sessionId === appState.selectedSessionId);
@@ -3508,8 +4080,8 @@
             appState.attachments = [];
             appState.currentSession = {
                 session: {
-                    title: '新对话',
-                    topic: '通用对话',
+                    title: t('workspace_title_new'),
+                    topic: t('topic_general'),
                     isDraft: true,
                 },
                 messages: [],
@@ -3533,7 +4105,7 @@
 
         function appendUserMessage(text, attachments = []) {
             const attachmentNote = attachments.length
-                ? `\n\n已附文件：\n${attachments.map((item) => `- ${item.name || '附件'}`).join('\n')}`
+                ? `\n\n${t('attached_files_label')}:\n${attachments.map((item) => `- ${item.name || t('generic_attachment')}`).join('\n')}`
                 : '';
             const message = {
                 id: `user-${Date.now()}`,
@@ -3565,7 +4137,7 @@
             });
             const payload = await response.json().catch(() => ({}));
             if (!response.ok || payload.ok === false) {
-                throw new Error(payload.msg || `上传失败（状态 ${response.status}）`);
+                throw new Error(payload.msg || t('upload_failed', { status: response.status }));
             }
             appState.attachments = [...appState.attachments, ...(payload.items || [])];
             renderAttachments();
@@ -3598,12 +4170,12 @@
             if (busyRun) {
                 draft.blocks.push({
                     type: 'text',
-                    text: '[系统] 当前会话正在后台执行任务，已自动切到新会话继续，避免卡住。',
+                    text: t('system_notice_busy'),
                 });
             } else if (forkForSystemSession) {
                 draft.blocks.push({
                     type: 'text',
-                    text: '[系统] 当前会话属于系统事务线程，已自动切到新会话继续，避免把超长任务上下文带进手动聊天。',
+                    text: t('system_notice_system'),
                 });
             }
             scheduleMessagesRender({ stickToBottom: true, force: true });
@@ -3629,7 +4201,7 @@
             if (!response.ok || !response.body) {
                 appState.isStreaming = false;
                 updateStreamingUi();
-                throw new Error(`聊天请求失败（状态 ${response.status}）`);
+                throw new Error(t('chat_failed', { status: response.status }));
             }
 
             appState.attachments = [];
@@ -3666,7 +4238,7 @@
                 if (event.type === 'system_notice') {
                     draft.blocks.push({
                         type: 'text',
-                        text: `[系统] ${event.message || '会话已自动切换。'}`,
+                        text: t('system_notice_session_switched', { message: event.message || t('session_switched_default') }),
                     });
                     scheduleMessagesRender({ stickToBottom: true, force: true });
                     return;
@@ -3691,14 +4263,14 @@
                     return;
                 }
                 if (event.type === 'tool_start') {
-                    currentTool = { type: 'tool_use', name: event.name || '工具', input: '' };
+                    currentTool = { type: 'tool_use', name: event.name || t('label_tool'), input: '' };
                     draft.blocks.push(currentTool);
                     scheduleMessagesRender({ stickToBottom: true, force: true });
                     return;
                 }
                 if (event.type === 'tool_delta') {
                     if (!currentTool) {
-                        currentTool = { type: 'tool_use', name: '工具', input: '' };
+                        currentTool = { type: 'tool_use', name: t('label_tool'), input: '' };
                         draft.blocks.push(currentTool);
                     }
                     currentTool.input = `${currentTool.input || ''}${event.text || ''}`;
@@ -3706,7 +4278,7 @@
                     return;
                 }
                 if (event.type === 'tool_snapshot') {
-                    draft.blocks.push({ type: 'tool_use', name: event.tool?.name || '工具', input: event.tool?.input || {} });
+                    draft.blocks.push({ type: 'tool_use', name: event.tool?.name || t('label_tool'), input: event.tool?.input || {} });
                     scheduleMessagesRender({ stickToBottom: true, force: true });
                     return;
                 }
@@ -3721,7 +4293,7 @@
                     appState.activeRunId = null;
                     updateStreamingUi();
                     if (event.isError && !draft.blocks.length) {
-                        draft.blocks.push({ type: 'text', text: event.result || event.stderr || '请求失败' });
+                        draft.blocks.push({ type: 'text', text: event.result || event.stderr || t('request_failed', { status: 'unknown' }) });
                     }
                     if (event.sessionId) {
                         finalSessionId = event.sessionId;
@@ -3749,7 +4321,7 @@
                 if (event.type === 'stopped') {
                     appState.isStreaming = false;
                     appState.activeRunId = null;
-                    draft.blocks.push({ type: 'text', text: '[已停止]' });
+                    draft.blocks.push({ type: 'text', text: t('stopped') });
                     scheduleMessagesRender({ stickToBottom: true, force: true });
                     updateStreamingUi();
                     return;
@@ -3757,7 +4329,7 @@
                 if (event.type === 'error') {
                     appState.isStreaming = false;
                     appState.activeRunId = null;
-                    draft.blocks.push({ type: 'text', text: event.message || '未知错误' });
+                    draft.blocks.push({ type: 'text', text: event.message || t('unknown_error') });
                     scheduleMessagesRender({ stickToBottom: true, force: true });
                     updateStreamingUi();
                 }
@@ -4013,6 +4585,11 @@
             document.getElementById('settings-dialog-confirm').addEventListener('click', () => {
                 submitSettingsDialog().catch((error) => console.error('settings submit failed', error));
             });
+            document.getElementById('settings-locale').addEventListener('change', (event) => {
+                persistLocale(event.target.value || appState.locale);
+                applyLocale();
+                setSettingsStatus(t('settings_restart_required'));
+            });
             document.getElementById('settings-dialog').addEventListener('click', (event) => {
                 if (event.target.id === 'settings-dialog') {
                     closeSettingsDialog();
@@ -4105,12 +4682,11 @@
         }
 
         appState.folderCollapse = restoreFolderCollapseState();
+        persistLocale(appState.locale);
         wireUi();
         startBackgroundRefresh();
         appState.currentSession = { session: null, messages: [] };
-        renderModelOptions();
-        renderAgentModeOptions();
-        renderAttachments();
+        applyLocale();
         restoreBootstrapCache();
         renderSidebar();
         renderMessages();

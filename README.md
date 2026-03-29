@@ -1,6 +1,7 @@
 # easy-claudecode.app-win
 
-`easy-claudecode.app-win` 是一个把 Claude Code 从终端带到 App 端的项目。它为 Windows 提供更低门槛的桌面与 Web 控制台体验，让用户可以像使用 Codex App 一样使用 Claude Code，同时保留模型切换、会话管理、技能、自动化和本地路由能力。
+`easy-claudecode.app-win` 是一个把 Claude Code 从终端带到 App 端的项目。它为 Windows 提供更低门槛的桌面与 Web 控制台体验，让用户可以像使用 Codex App 一样使用 Claude Code，同时保留模型切换、会话管理、技能、自动化和本地路由能力。  
+`easy-claudecode.app-win` brings Claude Code from the terminal into an app experience. It gives Windows users a lower-friction desktop and web console so they can use Claude Code more like Codex App, while still keeping model switching, thread management, skills, automations, and local routing.
 
 ## 目录
 
@@ -32,9 +33,10 @@
 6. 访问：
    - [http://127.0.0.1:18882/claude-console](http://127.0.0.1:18882/claude-console)
 
-## 设置按钮
+## 设置按钮 / Settings
 
-Web 控制台右上角提供“设置”按钮，可直接修改常用 API key、上游地址和健康检查 URL。保存后重启 `Claude Code.app` 即可完整应用。
+Web 控制台右上角提供“设置”按钮，可直接修改常用 API key、上游地址、健康检查 URL 和全局界面语言。保存后重启 `Claude Code.app` 即可完整应用。  
+The Settings button in the top-right corner lets users update API keys, upstream URLs, health-check URLs, and the global UI language. Restart `Claude Code.app` after saving to fully apply the changes.
 
 ## Windows 启动方式
 

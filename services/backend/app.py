@@ -392,6 +392,7 @@ EDITABLE_SETTINGS_FIELDS = (
     "CLAUDE_OPUS_PROXY_UPSTREAM",
     "CLAUDE_ROUTER_HEALTH_URL",
     "CLAUDE_PROXY_HEALTH_URL",
+    "CLAUDE_CONSOLE_LOCALE",
 )
 EDITABLE_SETTINGS_DEFAULTS = {
     "DASHSCOPE_CODINGPLAN_API_KEY": "",
@@ -400,6 +401,7 @@ EDITABLE_SETTINGS_DEFAULTS = {
     "CLAUDE_OPUS_PROXY_UPSTREAM": "https://aicodelink.shop/v1/messages",
     "CLAUDE_ROUTER_HEALTH_URL": "http://127.0.0.1:3456/health",
     "CLAUDE_PROXY_HEALTH_URL": "http://127.0.0.1:3460/health",
+    "CLAUDE_CONSOLE_LOCALE": "zh-CN",
 }
 
 app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path="/static")
@@ -2093,6 +2095,7 @@ def _build_status(force_refresh: bool = False) -> dict:
         "webDefaults": {
             "permissionMode": CLAUDE_WEB_PERMISSION_MODE,
             "chatTimeoutSeconds": CLAUDE_CHAT_TIMEOUT_SECONDS,
+            "locale": _load_editable_settings().get("CLAUDE_CONSOLE_LOCALE") or EDITABLE_SETTINGS_DEFAULTS["CLAUDE_CONSOLE_LOCALE"],
         },
         "tmux": _tmux_state(),
         "activeRuns": _combined_active_runs(),
