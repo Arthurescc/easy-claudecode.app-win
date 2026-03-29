@@ -1,6 +1,6 @@
 # easy-claudecode.app-win
 
-`easy-claudecode.app-win` 是一个脱敏后的 Claude Code 控制台开源版本。它把 Windows 启动链、Web 控制台、Flask 后端和可配置路由拆成一个独立仓库，默认不绑定任何个人运行环境。
+`easy-claudecode.app-win` 是一个把 Claude Code 从终端带到 App 端的项目。它为 Windows 提供更低门槛的桌面与 Web 控制台体验，让用户可以像使用 Codex App 一样使用 Claude Code，同时保留模型切换、会话管理、技能、自动化和本地路由能力。
 
 ## 目录
 
