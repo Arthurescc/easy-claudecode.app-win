@@ -460,6 +460,17 @@ def _run_capture(args: list[str], *, cwd: str, timeout: int) -> dict:
         return {"ok": False, "returncode": None, "stdout": "", "stderr": str(exc)}
 
 
+def _resolve_real_claude_bin() -> tuple[bool, str]:
+    raw_candidate = str(os.getenv("CLAUDE_REAL_BIN", "claude") or "").strip()
+    if not raw_candidate:
+        return False, ""
+    expanded = os.path.expanduser(raw_candidate)
+    if os.path.isabs(expanded) or os.sep in expanded or (IS_WINDOWS and "/" in expanded):
+        return os.path.exists(expanded), expanded
+    resolved = shutil.which(expanded)
+    return bool(resolved), (resolved or expanded)
+
+
 def _parse_env_assignment(line: str) -> tuple[str, str] | None:
     stripped = line.strip()
     if not stripped or stripped.startswith("#") or "=" not in stripped:
@@ -1881,7 +1892,16 @@ def _read_mcp_servers() -> list[dict]:
     server_map = settings.get("mcpServers") if isinstance(settings, dict) else {}
     if not isinstance(server_map, dict):
         return []
-    status_result = _run_capture([CLAUDE_WRAPPER_PATH, "mcp", "list"], cwd=CLAUDE_WORKSPACE_ROOT, timeout=20)
+    claude_cli_available, claude_real_bin = _resolve_real_claude_bin()
+    if claude_cli_available:
+        status_result = _run_capture([CLAUDE_WRAPPER_PATH, "mcp", "list"], cwd=CLAUDE_WORKSPACE_ROOT, timeout=20)
+    else:
+        status_result = {
+            "ok": False,
+            "returncode": None,
+            "stdout": "",
+            "stderr": f"Claude CLI not found: {claude_real_bin or 'claude'}",
+        }
     status_map: dict[str, str] = {}
     output_text = "\n".join(
         [
@@ -2017,7 +2037,16 @@ def _build_status(force_refresh: bool = False) -> dict:
         ):
             return copy.deepcopy(cached_payload)
 
-    claude_version = _run_capture([CLAUDE_WRAPPER_PATH, "--version"], cwd=CLAUDE_WORKSPACE_ROOT, timeout=10)
+    claude_cli_available, claude_real_bin = _resolve_real_claude_bin()
+    if claude_cli_available:
+        claude_version = _run_capture([CLAUDE_WRAPPER_PATH, "--version"], cwd=CLAUDE_WORKSPACE_ROOT, timeout=10)
+    else:
+        claude_version = {
+            "ok": False,
+            "returncode": None,
+            "stdout": "",
+            "stderr": f"Claude CLI not found: {claude_real_bin or 'claude'}",
+        }
     router_config = _read_json_file(CLAUDE_ROUTER_CONFIG_FILE, {})
     providers = []
     for provider in router_config.get("Providers", []) or []:
@@ -2035,8 +2064,10 @@ def _build_status(force_refresh: bool = False) -> dict:
         "generatedAt": datetime.now().isoformat(),
         "claude": {
             "binary": CLAUDE_WRAPPER_PATH,
+            "realBinary": claude_real_bin,
             "workspaceRoot": CLAUDE_WORKSPACE_ROOT,
             "exists": os.path.exists(CLAUDE_WRAPPER_PATH),
+            "realBinaryAvailable": claude_cli_available,
             "version": claude_version.get("stdout") or claude_version.get("stderr") or "",
             "versionOk": bool(claude_version.get("ok")),
         },
