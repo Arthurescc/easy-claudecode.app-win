@@ -1,0 +1,59 @@
+{
+  "PORT": 3456,
+  "HOST": "127.0.0.1",
+  "LOG": true,
+  "LOG_LEVEL": "debug",
+  "API_TIMEOUT_MS": 600000,
+  "NON_INTERACTIVE_MODE": false,
+  "CUSTOM_ROUTER_PATH": "__CUSTOM_ROUTER_PATH__",
+  "Providers": [
+    {
+      "name": "dashscope-codingplan",
+      "api_base_url": "http://127.0.0.1:3460/v1/messages",
+      "api_key": "$DASHSCOPE_CODINGPLAN_API_KEY",
+      "models": [
+        "qwen3-coder-plus",
+        "qwen3-max-2026-01-23",
+        "qwen3.5-plus",
+        "qwen3-coder-next",
+        "glm-5",
+        "glm-4.7",
+        "kimi-k2.5",
+        "MiniMax-M2.5"
+      ],
+      "transformer": {
+        "use": [
+          "Anthropic"
+        ],
+        "qwen3-coder-plus": {},
+        "qwen3-max-2026-01-23": {},
+        "qwen3.5-plus": {},
+        "glm-5": {},
+        "glm-4.7": {},
+        "MiniMax-M2.5": {}
+      }
+    },
+    {
+      "name": "aicodelink-opus",
+      "api_base_url": "$CLAUDE_OPUS_PROXY_UPSTREAM",
+      "api_key": "$AICODELINK_OPUS46_API_KEY",
+      "models": [
+        "claude-opus-4-6",
+        "claude-opus-4-6-thinking"
+      ],
+      "transformer": {
+        "use": [
+          "Anthropic"
+        ]
+      }
+    }
+  ],
+  "Router": {
+    "default": "dashscope-codingplan,glm-5",
+    "background": "dashscope-codingplan,glm-5",
+    "think": "dashscope-codingplan,glm-5",
+    "longContext": "dashscope-codingplan,glm-5",
+    "longContextThreshold": 220000,
+    "image": "dashscope-codingplan,kimi-k2.5"
+  }
+}
