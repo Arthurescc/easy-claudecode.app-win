@@ -48,8 +48,9 @@ jobs:
           $env:EASY_POWERSHELL_BIN = if (Get-Command pwsh -ErrorAction SilentlyContinue) { "pwsh" } else { "powershell" }
           Copy-Item .env.example .env
           $scriptPath = (Resolve-Path ".\scripts\run-claude-console.ps1").Path
-          $backendLog = Join-Path $env:RUNNER_TEMP "claude-console-backend.log"
-          $backend = Start-Process $env:EASY_POWERSHELL_BIN -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $scriptPath) -WorkingDirectory $PWD -PassThru -RedirectStandardOutput $backendLog -RedirectStandardError $backendLog
+          $backendStdoutLog = Join-Path $env:RUNNER_TEMP "claude-console-backend.stdout.log"
+          $backendStderrLog = Join-Path $env:RUNNER_TEMP "claude-console-backend.stderr.log"
+          $backend = Start-Process $env:EASY_POWERSHELL_BIN -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $scriptPath) -WorkingDirectory $PWD -PassThru -RedirectStandardOutput $backendStdoutLog -RedirectStandardError $backendStderrLog
           try {
               $healthy = $false
               for ($i = 0; $i -lt 45; $i++) {
@@ -64,10 +65,15 @@ jobs:
                   Start-Sleep -Seconds 1
               }
               if (-not $healthy) {
-                  if (Test-Path $backendLog) {
-                      Write-Host "----- backend log -----"
-                      Get-Content $backendLog
-                      Write-Host "-----------------------"
+                  if (Test-Path $backendStdoutLog) {
+                      Write-Host "----- backend stdout -----"
+                      Get-Content $backendStdoutLog
+                      Write-Host "--------------------------"
+                  }
+                  if (Test-Path $backendStderrLog) {
+                      Write-Host "----- backend stderr -----"
+                      Get-Content $backendStderrLog
+                      Write-Host "--------------------------"
                   }
                   throw "backend did not become healthy in time"
               }
