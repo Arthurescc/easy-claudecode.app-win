@@ -44,39 +44,46 @@ jobs:
       - name: Backend smoke test
         run: |
           $env:EASY_CLAUDECODE_HOME = Join-Path $env:RUNNER_TEMP "easy-home"
-          $env:CLAUDE_CONSOLE_PORT = "18982"
           $env:CLAUDE_CONSOLE_PYTHON_BIN = (Resolve-Path ".\.venv\Scripts\python.exe").Path
-          $env:EASY_CLAUDECODE_ENV_FILE = Join-Path $env:RUNNER_TEMP "easy.env"
-          Copy-Item .env.example $env:EASY_CLAUDECODE_ENV_FILE
-          ((Get-Content $env:EASY_CLAUDECODE_ENV_FILE) -replace '^CLAUDE_CONSOLE_PORT=18882$', 'CLAUDE_CONSOLE_PORT=18982') | Set-Content $env:EASY_CLAUDECODE_ENV_FILE
+          $env:EASY_POWERSHELL_BIN = if (Get-Command pwsh -ErrorAction SilentlyContinue) { "pwsh" } else { "powershell" }
+          Copy-Item .env.example .env
           $scriptPath = (Resolve-Path ".\scripts\run-claude-console.ps1").Path
-          $backend = Start-Process powershell -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $scriptPath) -WorkingDirectory $PWD -PassThru
-          $healthy = $false
-          for ($i = 0; $i -lt 30; $i++) {
-              try {
-                  $response = Invoke-WebRequest -Uri "http://127.0.0.1:18982/health" -UseBasicParsing -TimeoutSec 2
-                  if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 300) {
-                      $healthy = $true
-                      break
+          $backendLog = Join-Path $env:RUNNER_TEMP "claude-console-backend.log"
+          $backend = Start-Process $env:EASY_POWERSHELL_BIN -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $scriptPath) -WorkingDirectory $PWD -PassThru -RedirectStandardOutput $backendLog -RedirectStandardError $backendLog
+          try {
+              $healthy = $false
+              for ($i = 0; $i -lt 45; $i++) {
+                  try {
+                      $response = Invoke-WebRequest -Uri "http://127.0.0.1:18882/health" -UseBasicParsing -TimeoutSec 2
+                      if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 300) {
+                          $healthy = $true
+                          break
+                      }
+                  } catch {
                   }
-              } catch {
+                  Start-Sleep -Seconds 1
               }
-              Start-Sleep -Seconds 1
-          }
-          if (-not $healthy) {
-              throw "backend did not become healthy in time"
-          }
-          Invoke-WebRequest -Uri "http://127.0.0.1:18982/health" -UseBasicParsing | Select-Object -ExpandProperty Content
-          Invoke-WebRequest -Uri "http://127.0.0.1:18982/claude-console/status" -UseBasicParsing | Select-Object -ExpandProperty Content
-          $bootstrapRaw = Invoke-WebRequest -Uri "http://127.0.0.1:18982/claude-console/bootstrap" -UseBasicParsing | Select-Object -ExpandProperty Content
-          $bootstrap = $bootstrapRaw | ConvertFrom-Json
-          if (-not $bootstrap.ok) {
-              throw "bootstrap returned ok=false"
-          }
-          if (-not $bootstrap.webDefaults.locale) {
-              throw "bootstrap missing locale"
-          }
-          Write-Host ("bootstrap locale: " + $bootstrap.webDefaults.locale)
-          if (-not $backend.HasExited) {
-              Stop-Process -Id $backend.Id -Force
+              if (-not $healthy) {
+                  if (Test-Path $backendLog) {
+                      Write-Host "----- backend log -----"
+                      Get-Content $backendLog
+                      Write-Host "-----------------------"
+                  }
+                  throw "backend did not become healthy in time"
+              }
+              Invoke-WebRequest -Uri "http://127.0.0.1:18882/health" -UseBasicParsing | Select-Object -ExpandProperty Content
+              Invoke-WebRequest -Uri "http://127.0.0.1:18882/claude-console/status" -UseBasicParsing | Select-Object -ExpandProperty Content
+              $bootstrapRaw = Invoke-WebRequest -Uri "http://127.0.0.1:18882/claude-console/bootstrap" -UseBasicParsing | Select-Object -ExpandProperty Content
+              $bootstrap = $bootstrapRaw | ConvertFrom-Json
+              if (-not $bootstrap.ok) {
+                  throw "bootstrap returned ok=false"
+              }
+              if (-not $bootstrap.webDefaults.locale) {
+                  throw "bootstrap missing locale"
+              }
+              Write-Host ("bootstrap locale: " + $bootstrap.webDefaults.locale)
+          } finally {
+              if ($backend -and -not $backend.HasExited) {
+                  Stop-Process -Id $backend.Id -Force
+              }
           }

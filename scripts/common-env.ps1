@@ -50,6 +50,13 @@ $env:CLAUDE_EXTRA_ALLOWED_DIRS = if ($env:CLAUDE_EXTRA_ALLOWED_DIRS) { $env:CLAU
 $env:NODE_PATH = if ($env:NODE_PATH) { $env:NODE_PATH } else { Join-Path $RepoRoot "node_modules" }
 $env:NO_PROXY = "127.0.0.1,localhost"
 $env:no_proxy = "127.0.0.1,localhost"
+$env:EASY_POWERSHELL_BIN = if ($env:EASY_POWERSHELL_BIN) {
+    $env:EASY_POWERSHELL_BIN
+} elseif (Get-Command pwsh -ErrorAction SilentlyContinue) {
+    "pwsh"
+} else {
+    "powershell"
+}
 
 foreach ($ProxyKey in @("HTTP_PROXY","HTTPS_PROXY","ALL_PROXY","http_proxy","https_proxy","all_proxy")) {
     Remove-Item "Env:$ProxyKey" -ErrorAction SilentlyContinue
