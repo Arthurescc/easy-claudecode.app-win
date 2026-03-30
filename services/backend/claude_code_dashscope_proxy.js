@@ -20,7 +20,7 @@ const PROXY_URL =
   process.env.http_proxy ||
   process.env.all_proxy ||
   "";
-const UPSTREAM_MODE = /\/apps\/anthropic(?:\/v1\/messages)?$/i.test(UPSTREAM_URL)
+const UPSTREAM_MODE = /\/(?:apps\/)?anthropic(?:\/v1\/messages)?$/i.test(UPSTREAM_URL)
   ? "anthropic"
   : "openai";
 const REQUEST_TIMEOUT_MS = Number(
@@ -40,6 +40,9 @@ const STREAM_FIRST_BYTE_TIMEOUT_MS = Number(
 );
 const STREAM_HEARTBEAT_MS = Number(
   process.env.CLAUDE_DASHSCOPE_PROXY_STREAM_HEARTBEAT_MS || "3000"
+);
+const UNSUPPORTED_MODEL_TTL_MS = Number(
+  process.env.CLAUDE_DASHSCOPE_PROXY_UNSUPPORTED_MODEL_TTL_MS || "1800000"
 );
 
 const TEXT_REPLACEMENTS = [
@@ -64,10 +67,12 @@ const DEFAULT_REASONING = {
   "kimi-k2.5": "medium",
   "qwen3.5-plus": "medium",
   "glm-4.7": "medium",
-  "MiniMax-M2.5": "medium"
+  "MiniMax-M2.5": "medium",
+  "MiniMax-M2.7-highspeed": "medium"
 };
 
 const FORCE_NON_STREAM_MODELS = new Set(["qwen3-max-2026-01-23"]);
+const UNSUPPORTED_MODEL_CACHE = new Map();
 
 const MODEL_FALLBACKS = {
   "glm-5": ["qwen3-max-2026-01-23", "qwen3-coder-plus"],
@@ -76,7 +81,8 @@ const MODEL_FALLBACKS = {
   "kimi-k2.5": ["qwen3.5-plus"],
   "qwen3.5-plus": ["kimi-k2.5"],
   "glm-4.7": ["glm-5", "qwen3-max-2026-01-23"],
-  "MiniMax-M2.5": ["glm-5", "qwen3-max-2026-01-23"]
+  "MiniMax-M2.5": ["MiniMax-M2.7-highspeed", "glm-5", "qwen3-max-2026-01-23"],
+  "MiniMax-M2.7-highspeed": ["MiniMax-M2.5", "glm-5", "qwen3-max-2026-01-23"]
 };
 
 if (PROXY_URL && ProxyAgent) {
@@ -168,8 +174,42 @@ function preparePayload(payload, model) {
   return prepared;
 }
 
+function isUnsupportedModelError(bodyText) {
+  return /not support model|unsupported model|model[^"]+not support|model[^"]+unsupported|\(2061\)/i.test(
+    bodyText || ""
+  );
+}
+
+function rememberUnsupportedModel(model, bodyText) {
+  if (!model || UNSUPPORTED_MODEL_TTL_MS <= 0) {
+    return;
+  }
+  UNSUPPORTED_MODEL_CACHE.set(model, {
+    expiresAt: Date.now() + UNSUPPORTED_MODEL_TTL_MS,
+    reason: String(bodyText || "").slice(0, 500)
+  });
+}
+
+function isModelTemporarilyUnsupported(model) {
+  if (!model) {
+    return false;
+  }
+  const entry = UNSUPPORTED_MODEL_CACHE.get(model);
+  if (!entry) {
+    return false;
+  }
+  if (entry.expiresAt <= Date.now()) {
+    UNSUPPORTED_MODEL_CACHE.delete(model);
+    return false;
+  }
+  return true;
+}
+
 function getAttemptModels(requestedModel) {
-  const attemptModels = [requestedModel, ...(MODEL_FALLBACKS[requestedModel] || [])];
+  const preferredModels = [requestedModel, ...(MODEL_FALLBACKS[requestedModel] || [])];
+  const attemptModels = isModelTemporarilyUnsupported(requestedModel)
+    ? [...(MODEL_FALLBACKS[requestedModel] || []), requestedModel]
+    : preferredModels;
   return attemptModels.filter(
     (model, index) => model && attemptModels.indexOf(model) === index
   );
@@ -666,6 +706,9 @@ const server = http.createServer(async (req, res) => {
         statusCode: upstreamResponse.status,
         bodyText
       };
+      if (isUnsupportedModelError(bodyText)) {
+        rememberUnsupportedModel(attemptModel, bodyText);
+      }
       log("attempt_failure", {
         requestedModel,
         attemptModel,
@@ -923,6 +966,9 @@ const server = http.createServer(async (req, res) => {
       statusCode: upstreamResponse.status,
       bodyText
     };
+    if (isUnsupportedModelError(bodyText)) {
+      rememberUnsupportedModel(attemptModel, bodyText);
+    }
     log("attempt_failure", {
       requestedModel,
       attemptModel,

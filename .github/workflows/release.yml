@@ -1,0 +1,89 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows-release:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Resolve release version
+        run: |
+          if ("${{ github.ref_type }}" -eq "tag") {
+              $version = "${{ github.ref_name }}".TrimStart("v")
+          } else {
+              $version = (Get-Content package.json | ConvertFrom-Json).version
+          }
+          "RELEASE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+          .\.venv\Scripts\python.exe -m pip install --upgrade pip
+          .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+          npm ci
+
+      - name: Validate release build
+        run: |
+          .\.venv\Scripts\python.exe -m py_compile services/backend/app.py services/backend/claude_console_utils.py
+          .\.venv\Scripts\python.exe .github/scripts/check_inline_js.py apps/web/claude-console.html
+          node --check services/backend/claude_code_dashscope_proxy.js
+          node --check config/router/custom-router.js
+          $env:EASY_CLAUDECODE_SHORTCUT_DESKTOP_DIR = Join-Path $env:RUNNER_TEMP "desktop"
+          $env:EASY_CLAUDECODE_SHORTCUT_PATH = Join-Path $env:EASY_CLAUDECODE_SHORTCUT_DESKTOP_DIR "Claude Code.app.lnk"
+          .\scripts\install-desktop-shortcut.ps1
+          .\scripts\install-cc-launcher.ps1
+          if (-not (Test-Path $env:EASY_CLAUDECODE_SHORTCUT_PATH)) {
+              throw "desktop shortcut was not created"
+          }
+          if (-not (Test-Path ".\apps\desktop-windows\bin\Claude Code.app.exe")) {
+              throw "desktop launcher exe was not created"
+          }
+          $shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut($env:EASY_CLAUDECODE_SHORTCUT_PATH)
+          if (-not $shortcut.TargetPath.EndsWith(".exe")) {
+              throw "desktop shortcut target is not an exe"
+          }
+          if (-not (Test-Path "$HOME\.local\bin\cc.cmd")) {
+              throw "cc.cmd was not installed"
+          }
+          .\scripts\sync-router.ps1
+
+      - name: Package release
+        run: |
+          .\scripts\package-release.ps1 -Version $env:RELEASE_VERSION
+          if (-not (Test-Path "dist/easy-claudecode.app-win-$env:RELEASE_VERSION/apps/desktop-windows/bin/Claude Code.app.exe")) {
+              throw "packaged launcher exe was not created"
+          }
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: easy-claudecode.app-win-${{ env.RELEASE_VERSION }}
+          path: dist/easy-claudecode.app-win-${{ env.RELEASE_VERSION }}.zip
+
+      - name: Publish GitHub release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/easy-claudecode.app-win-${{ env.RELEASE_VERSION }}.zip
+          generate_release_notes: true

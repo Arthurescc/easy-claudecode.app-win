@@ -29,16 +29,35 @@ npm install
 Copy-Item .env.example .env
 ```
 
-Fill in only the providers you want to use. `DASHSCOPE_CODINGPLAN_API_KEY` is the default Coding Plan chain. `AICODELINK_OPUS46_API_KEY` is optional.
+Fill in only the providers you want to use. `DASHSCOPE_CODINGPLAN_API_KEY` remains the compatibility env name for the default Coding Plan chain, which now points to the MiniMax Anthropic-compatible upstream by default. `AICODELINK_OPUS46_API_KEY` is optional.
 
 If you enable the Opus provider, also set `CLAUDE_OPUS_PROXY_UPSTREAM`. The public example no longer hardcodes a private upstream URL.
 
 The app also exposes a local settings dialog that writes these values into `.env` for you. After saving, restart the app so the router and proxy pick up the updated credentials.
 
+`sync-router.ps1` / `sync-router.sh` now also mirrors the generated router config into `~/.claude-code-router/config.json` and updates `~/.claude/settings.json` with the current default route so recent Claude Code builds and `ccr` 2.x read the same model/provider pair.
+
 ## Run on Windows
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\open-claude-code.ps1
+```
+
+On Windows, the first launch now also builds `apps\desktop-windows\bin\Claude Code.app.exe`, creates or repairs the desktop shortcut `Claude Code.app.lnk`, and installs `cc.cmd` into `~/.local/bin`.
+
+Manual installers:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install-desktop-shortcut.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\install-cc-launcher.ps1
+```
+
+Quick model switching stays in CLI only:
+
+```powershell
+cc switch --list
+cc switch MiniMax-M2.7-highspeed
+cc switch dashscope-codingplan,glm-5
 ```
 
 也可以分开启动：

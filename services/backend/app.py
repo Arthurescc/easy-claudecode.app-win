@@ -221,11 +221,11 @@ CLAUDE_MODE_CONFIG = {
         "model": "qwen3-coder-plus",
     },
     "minimax": {
-        "label": "MiniMax-M2.5",
+        "label": "MiniMax-M2.7-highspeed",
         "tag": "[route:minimax]",
         "description": "主编程、调试、修复、高逻辑实现",
         "effort": "medium",
-        "model": "MiniMax-M2.5",
+        "model": "MiniMax-M2.7-highspeed",
     },
     "opus46": {
         "label": "opus 4.6 thinking",
@@ -238,7 +238,7 @@ CLAUDE_MODE_CONFIG = {
 
 CLAUDE_ASSIGNMENT_MATRIX = [
     {"scope": "任务拆解 / teams 编排 / 细节补全", "model": "glm-5", "effort": "high"},
-    {"scope": "主编程 / 调试 / 实现", "model": "MiniMax-M2.5", "effort": "high"},
+    {"scope": "主编程 / 调试 / 实现", "model": "MiniMax-M2.7-highspeed", "effort": "high"},
     {"scope": "审查 / 核验 / 回归", "model": "qwen3-max-2026-01-23", "effort": "high"},
     {"scope": "截图 / OCR / UI / 视觉", "model": "kimi-k2.5", "effort": "medium"},
     {"scope": "视觉托底", "model": "qwen3.5-plus", "effort": "medium"},
@@ -397,7 +397,7 @@ EDITABLE_SETTINGS_FIELDS = (
 EDITABLE_SETTINGS_DEFAULTS = {
     "DASHSCOPE_CODINGPLAN_API_KEY": "",
     "AICODELINK_OPUS46_API_KEY": "",
-    "CLAUDE_DASHSCOPE_PROXY_UPSTREAM": "https://coding.dashscope.aliyuncs.com/apps/anthropic/v1/messages",
+    "CLAUDE_DASHSCOPE_PROXY_UPSTREAM": "https://api.minimaxi.com/anthropic/v1/messages",
     "CLAUDE_OPUS_PROXY_UPSTREAM": "https://aicodelink.shop/v1/messages",
     "CLAUDE_ROUTER_HEALTH_URL": "http://127.0.0.1:3456/health",
     "CLAUDE_PROXY_HEALTH_URL": "http://127.0.0.1:3460/health",
@@ -582,6 +582,24 @@ def _read_json_file(path: str, fallback):
         return data if isinstance(data, type(fallback)) else fallback
     except Exception:
         return fallback
+
+
+def _router_section(router_config: dict) -> dict:
+    section = router_config.get("Router")
+    if isinstance(section, dict):
+        return section
+    section = router_config.get("router")
+    return section if isinstance(section, dict) else {}
+
+
+def _router_provider_entries(router_config: dict) -> list[dict]:
+    providers = router_config.get("Providers")
+    if isinstance(providers, list):
+        return [item for item in providers if isinstance(item, dict)]
+    providers = router_config.get("providers")
+    if isinstance(providers, list):
+        return [item for item in providers if isinstance(item, dict)]
+    return []
 
 
 def _json_safe(value):
@@ -2049,9 +2067,7 @@ def _build_status(force_refresh: bool = False) -> dict:
         }
     router_config = _read_json_file(CLAUDE_ROUTER_CONFIG_FILE, {})
     providers = []
-    for provider in router_config.get("Providers", []) or []:
-        if not isinstance(provider, dict):
-            continue
+    for provider in _router_provider_entries(router_config):
         providers.append(
             {
                 "name": provider.get("name") or "",
@@ -2059,6 +2075,7 @@ def _build_status(force_refresh: bool = False) -> dict:
                 "apiBaseUrl": provider.get("api_base_url") or "",
             }
         )
+    router_section = _router_section(router_config)
     payload = {
         "ok": True,
         "generatedAt": datetime.now().isoformat(),
@@ -2083,12 +2100,12 @@ def _build_status(force_refresh: bool = False) -> dict:
         "routerConfig": {
             "path": CLAUDE_ROUTER_CONFIG_FILE,
             "customRouterPath": router_config.get("CUSTOM_ROUTER_PATH") or CLAUDE_ROUTER_CUSTOM_FILE,
-            "default": (router_config.get("Router") or {}).get("default"),
-            "background": (router_config.get("Router") or {}).get("background"),
-            "think": (router_config.get("Router") or {}).get("think"),
-            "longContext": (router_config.get("Router") or {}).get("longContext"),
-            "longContextThreshold": (router_config.get("Router") or {}).get("longContextThreshold"),
-            "image": (router_config.get("Router") or {}).get("image"),
+            "default": router_section.get("default"),
+            "background": router_section.get("background"),
+            "think": router_section.get("think"),
+            "longContext": router_section.get("longContext"),
+            "longContextThreshold": router_section.get("longContextThreshold"),
+            "image": router_section.get("image"),
             "providers": providers,
         },
         "assignments": CLAUDE_ASSIGNMENT_MATRIX,

@@ -41,6 +41,26 @@ jobs:
           node --check config/router/custom-router.js
           .\scripts\sync-router.ps1
 
+      - name: Windows launcher smoke test
+        run: |
+          $env:EASY_CLAUDECODE_SHORTCUT_DESKTOP_DIR = Join-Path $env:RUNNER_TEMP "desktop"
+          $env:EASY_CLAUDECODE_SHORTCUT_PATH = Join-Path $env:EASY_CLAUDECODE_SHORTCUT_DESKTOP_DIR "Claude Code.app.lnk"
+          .\scripts\install-desktop-shortcut.ps1
+          .\scripts\install-cc-launcher.ps1
+          if (-not (Test-Path $env:EASY_CLAUDECODE_SHORTCUT_PATH)) {
+              throw "desktop shortcut was not created"
+          }
+          if (-not (Test-Path ".\apps\desktop-windows\bin\Claude Code.app.exe")) {
+              throw "desktop launcher exe was not created"
+          }
+          $shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut($env:EASY_CLAUDECODE_SHORTCUT_PATH)
+          if (-not $shortcut.TargetPath.EndsWith(".exe")) {
+              throw "desktop shortcut target is not an exe"
+          }
+          if (-not (Test-Path "$HOME\.local\bin\cc.cmd")) {
+              throw "cc.cmd was not installed"
+          }
+
       - name: Backend smoke test
         run: |
           $env:EASY_CLAUDECODE_HOME = Join-Path $env:RUNNER_TEMP "easy-home"

@@ -84,7 +84,7 @@ const EXPLICIT_ROUTES = [
   },
   {
     pattern: /\[route:minimax\]/i,
-    target: "dashscope-codingplan,MiniMax-M2.5"
+    target: "dashscope-codingplan,MiniMax-M2.7-highspeed"
   }
 ];
 
@@ -115,7 +115,7 @@ const ROLE_ROUTE_PATTERNS = [
     ]
   },
   {
-    target: "dashscope-codingplan,MiniMax-M2.5",
+    target: "dashscope-codingplan,MiniMax-M2.7-highspeed",
     normalizedNeedles: [
       "你是前端工程师",
       "前端工程师角色",
@@ -284,7 +284,7 @@ module.exports = async function router(req) {
   }
 
   if (CODING_PATTERNS.some((pattern) => pattern.test(userText))) {
-    return "dashscope-codingplan,glm-5";
+    return "dashscope-codingplan,MiniMax-M2.7-highspeed";
   }
 
   if (DOCUMENT_PATTERNS.some((pattern) => pattern.test(userText))) {

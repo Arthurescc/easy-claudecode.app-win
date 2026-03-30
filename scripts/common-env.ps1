@@ -48,6 +48,34 @@ $env:CLAUDE_WRAPPER_PATH = if ($env:CLAUDE_WRAPPER_PATH) { $env:CLAUDE_WRAPPER_P
 $env:CLAUDE_REAL_BIN = if ($env:CLAUDE_REAL_BIN) { $env:CLAUDE_REAL_BIN } else { "claude" }
 $env:CLAUDE_EXTRA_ALLOWED_DIRS = if ($env:CLAUDE_EXTRA_ALLOWED_DIRS) { $env:CLAUDE_EXTRA_ALLOWED_DIRS } else { "$RepoRoot,$HomeDir\Desktop" }
 $env:NODE_PATH = if ($env:NODE_PATH) { $env:NODE_PATH } else { Join-Path $RepoRoot "node_modules" }
+$DefaultDesktopDir = if ($env:EASY_CLAUDECODE_SHORTCUT_DESKTOP_DIR) {
+    $env:EASY_CLAUDECODE_SHORTCUT_DESKTOP_DIR
+} else {
+    [Environment]::GetFolderPath("Desktop")
+}
+if (-not $DefaultDesktopDir) {
+    $DefaultDesktopDir = Join-Path $HomeDir "Desktop"
+}
+$env:EASY_CLAUDECODE_SHORTCUT_DESKTOP_DIR = $DefaultDesktopDir
+$env:EASY_CLAUDECODE_AUTO_INSTALL_SHORTCUT = if ($env:EASY_CLAUDECODE_AUTO_INSTALL_SHORTCUT) { $env:EASY_CLAUDECODE_AUTO_INSTALL_SHORTCUT } else { "1" }
+$env:EASY_CLAUDECODE_SHORTCUT_NAME = if ($env:EASY_CLAUDECODE_SHORTCUT_NAME) { $env:EASY_CLAUDECODE_SHORTCUT_NAME } else { "Claude Code.app.lnk" }
+$env:EASY_CLAUDECODE_SHORTCUT_PATH = if ($env:EASY_CLAUDECODE_SHORTCUT_PATH) {
+    $env:EASY_CLAUDECODE_SHORTCUT_PATH
+} else {
+    Join-Path $DefaultDesktopDir $env:EASY_CLAUDECODE_SHORTCUT_NAME
+}
+$env:EASY_CLAUDECODE_AUTO_INSTALL_CC = if ($env:EASY_CLAUDECODE_AUTO_INSTALL_CC) { $env:EASY_CLAUDECODE_AUTO_INSTALL_CC } else { "1" }
+$env:EASY_CLAUDECODE_DEFAULT_ROUTE = if ($env:EASY_CLAUDECODE_DEFAULT_ROUTE) { $env:EASY_CLAUDECODE_DEFAULT_ROUTE } else { "" }
+$env:EASY_CLAUDECODE_DESKTOP_LAUNCHER_DIR = if ($env:EASY_CLAUDECODE_DESKTOP_LAUNCHER_DIR) {
+    $env:EASY_CLAUDECODE_DESKTOP_LAUNCHER_DIR
+} else {
+    Join-Path $RepoRoot "apps\desktop-windows\bin"
+}
+$env:EASY_CLAUDECODE_DESKTOP_LAUNCHER_PATH = if ($env:EASY_CLAUDECODE_DESKTOP_LAUNCHER_PATH) {
+    $env:EASY_CLAUDECODE_DESKTOP_LAUNCHER_PATH
+} else {
+    Join-Path $env:EASY_CLAUDECODE_DESKTOP_LAUNCHER_DIR "Claude Code.app.exe"
+}
 $env:NO_PROXY = "127.0.0.1,localhost"
 $env:no_proxy = "127.0.0.1,localhost"
 $env:EASY_POWERSHELL_BIN = if ($env:EASY_POWERSHELL_BIN) {
@@ -62,7 +90,7 @@ foreach ($ProxyKey in @("HTTP_PROXY","HTTPS_PROXY","ALL_PROXY","http_proxy","htt
     Remove-Item "Env:$ProxyKey" -ErrorAction SilentlyContinue
 }
 
-foreach ($Dir in @($EasyHome, $env:CLAUDE_CONSOLE_LOG_ROOT, $env:CLAUDE_CONSOLE_UPLOAD_ROOT, $RouterRuntime)) {
+foreach ($Dir in @($EasyHome, $env:CLAUDE_CONSOLE_LOG_ROOT, $env:CLAUDE_CONSOLE_UPLOAD_ROOT, $RouterRuntime, $env:EASY_CLAUDECODE_DESKTOP_LAUNCHER_DIR)) {
     if ($Dir) {
         New-Item -ItemType Directory -Force -Path $Dir | Out-Null
     }

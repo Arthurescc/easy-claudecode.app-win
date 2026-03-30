@@ -20,6 +20,22 @@ function Test-Healthy($Url) {
     }
 }
 
+if ($env:EASY_CLAUDECODE_AUTO_INSTALL_SHORTCUT -ne "0") {
+    try {
+        & (Join-Path $PSScriptRoot "install-desktop-shortcut.ps1") | Out-Null
+    } catch {
+        Write-Warning ("desktop shortcut install skipped: " + $_.Exception.Message)
+    }
+}
+
+if ($env:EASY_CLAUDECODE_AUTO_INSTALL_CC -ne "0") {
+    try {
+        & (Join-Path $PSScriptRoot "install-cc-launcher.ps1") | Out-Null
+    } catch {
+        Write-Warning ("cc launcher install skipped: " + $_.Exception.Message)
+    }
+}
+
 if (-not (Test-Healthy $env:CLAUDE_ROUTER_HEALTH_URL)) {
     Start-Process $ShellBin -ArgumentList @("-NoProfile","-ExecutionPolicy","Bypass","-File",(Join-Path $PSScriptRoot "start-claude-code-router.ps1")) -WindowStyle Hidden -RedirectStandardOutput $RouterStdoutLog -RedirectStandardError $RouterStderrLog | Out-Null
     Start-Sleep -Seconds 1
