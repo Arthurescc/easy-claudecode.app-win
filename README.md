@@ -46,7 +46,7 @@ The Settings button in the top-right corner lets users update API keys, upstream
 - `scripts\\start-claude-code-router.ps1`：只运行 Router
 - `scripts\\start-claude-code-dashscope-proxy.ps1`：只运行本地代理
 
-首次运行 `scripts\\open-claude-code.ps1` 或 `scripts\\open-claude-code.cmd` 时，仓库会自动构建 `apps\\desktop-windows\\bin\\Claude Code.app.exe`、创建或修复桌面快捷方式 `Claude Code.app.lnk`，并安装全局 `cc.cmd` 入口。
+首次运行 `scripts\\open-claude-code.ps1` 或 `scripts\\open-claude-code.cmd` 时，仓库会自动构建 `apps\\desktop-windows\\bin\\Claude Code.app.exe`、创建或修复桌面快捷方式 `Claude Code.app.lnk`，并安装全局 `cc.cmd` 入口。双击桌面快捷方式时会直接打开独立 app 窗口，不再跳到默认浏览器标签页。
 
 前端工作台保持原版交互；模型切换走命令行 `cc switch`，例如：
 

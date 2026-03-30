@@ -102,6 +102,10 @@
             gap: 14px;
         }
 
+        .workspace-status {
+            display: none;
+        }
+
         .brand-mark,
         .session-status-pill,
         .mode-chip,
@@ -662,10 +666,7 @@
         }
 
         .workspace-status {
-            display: flex;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 8px;
+            display: none;
         }
 
         .session-status-pill,
@@ -987,6 +988,13 @@
             background: rgba(255, 253, 249, 0.96);
             padding: 14px;
             box-shadow: 0 10px 28px rgba(71, 57, 42, 0.06);
+            transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+        }
+
+        .composer-card.is-dragover {
+            border-color: rgba(188, 102, 68, 0.48);
+            box-shadow: 0 16px 36px rgba(188, 102, 68, 0.16);
+            transform: translateY(-1px);
         }
 
         .composer-top {
@@ -997,9 +1005,25 @@
 
         .composer-toolbar {
             display: flex;
-            align-items: center;
+            align-items: flex-end;
             flex-wrap: wrap;
             gap: 10px;
+        }
+
+        .composer-field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-width: 164px;
+        }
+
+        .composer-field-label {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--muted);
+            padding-left: 2px;
         }
 
         .composer-select {
@@ -1012,6 +1036,7 @@
 
         .attach-btn {
             padding: 9px 12px;
+            align-self: flex-end;
         }
 
         .native-file-input {
@@ -1066,6 +1091,10 @@
         .search-wrap input:focus,
         .composer-select:focus {
             outline: none;
+        }
+
+        .composer-hidden-control {
+            display: none;
         }
 
         .composer-bottom {
@@ -1281,14 +1310,14 @@
                         <div class="composer-toolbar">
                             <button class="ghost-btn attach-btn" id="btn-attach-file" type="button">＋ 文件</button>
                             <input id="file-input" class="native-file-input" type="file" multiple aria-hidden="true" tabindex="-1" />
-                            <select class="composer-select" id="model-route"></select>
-                            <select class="composer-select" id="agent-mode"></select>
-                            <label class="tiny-label" for="permission-mode" id="permission-mode-label">网页权限</label>
-                            <select class="composer-select" id="permission-mode">
-                                <option value="acceptEdits">自动接收改动</option>
-                                <option value="default">默认确认模式</option>
-                                <option value="bypassPermissions">全权限（不再询问）</option>
-                            </select>
+                            <div class="composer-field">
+                                <span class="composer-field-label" id="model-route-label">模型</span>
+                                <select class="composer-select" id="model-route"></select>
+                            </div>
+                            <div class="composer-field">
+                                <span class="composer-field-label" id="agent-mode-label">执行方法</span>
+                                <select class="composer-select" id="agent-mode"></select>
+                            </div>
                         </div>
                     </div>
                     <div class="attachment-list" id="attachment-list" style="display:none;"></div>
@@ -1301,6 +1330,13 @@
                             <button class="ghost-btn" id="btn-stop-run" style="display:none;">停止</button>
                             <button class="primary-btn" id="btn-send">发送</button>
                         </div>
+                    </div>
+                    <div class="composer-hidden-control" aria-hidden="true">
+                        <select class="composer-select" id="permission-mode" tabindex="-1">
+                            <option value="acceptEdits">自动接收改动</option>
+                            <option value="default">默认确认模式</option>
+                            <option value="bypassPermissions">全权限（不再询问）</option>
+                        </select>
                     </div>
                 </div>
             </footer>
@@ -1427,6 +1463,8 @@
                 welcome_title: '直接开始新线程。',
                 settings_button: '设置',
                 open_terminal: '在终端继续',
+                model_label: '模型',
+                execution_method_label: '执行方法',
                 permission_web: '网页权限',
                 permission_accept_edits: '自动接收改动',
                 permission_default: '默认确认模式',
@@ -1516,7 +1554,7 @@
                 run_status_idle: '空闲',
                 run_status_running: '运行中 {count}',
                 run_status_streaming: '流式响应中{suffix}',
-                composer_note_detail: 'Enter 发送，Shift+Enter 换行，输入法候选时不会误发送；权限为 {permission}；协作模式为 {agent}{attachmentSuffix}。',
+                composer_note_detail: 'Enter 发送，Shift+Enter 换行；支持直接拖入文件；执行方法为 {agent}{attachmentSuffix}。',
                 attachment_suffix: ' · 已附 {count} 个文件',
                 topic_general: '通用对话',
                 topic_desktop_files: '桌面文件',
@@ -1583,6 +1621,8 @@
                 welcome_title: 'Start a new thread right away.',
                 settings_button: 'Settings',
                 open_terminal: 'Continue in Terminal',
+                model_label: 'Model',
+                execution_method_label: 'Execution',
                 permission_web: 'Web permissions',
                 permission_accept_edits: 'Auto-accept edits',
                 permission_default: 'Confirm by default',
@@ -1672,7 +1712,7 @@
                 run_status_idle: 'Idle',
                 run_status_running: 'Running {count}',
                 run_status_streaming: 'Streaming{suffix}',
-                composer_note_detail: 'Press Enter to send, Shift+Enter for a new line, IME composition will not send accidentally; permissions: {permission}; collaboration: {agent}{attachmentSuffix}.',
+                composer_note_detail: 'Press Enter to send, Shift+Enter for a new line; drag files in directly; execution: {agent}{attachmentSuffix}.',
                 attachment_suffix: ' · {count} file(s) attached',
                 topic_general: 'General chat',
                 topic_desktop_files: 'Desktop files',
@@ -1922,8 +1962,9 @@
                 ['workspace-title', 'workspace_title_new'],
                 ['btn-open-settings', 'settings_button'],
                 ['btn-open-terminal', 'open_terminal'],
-                ['permission-mode-label', 'permission_web'],
                 ['btn-attach-file', 'attach_file'],
+                ['model-route-label', 'model_label'],
+                ['agent-mode-label', 'execution_method_label'],
                 ['btn-stop-run', 'stop'],
                 ['btn-send', 'send'],
                 ['sidebar-dialog-title', 'dialog_edit_session'],
@@ -2657,6 +2698,48 @@
             input.click();
         }
 
+        function bindComposerFileDrop() {
+            const composerCard = document.querySelector('.composer-card');
+            if (!composerCard) return;
+            let dragDepth = 0;
+            const hasFiles = (event) => Array.from(event?.dataTransfer?.types || []).includes('Files');
+            const setDragState = (isActive) => {
+                composerCard.classList.toggle('is-dragover', !!isActive);
+            };
+
+            window.addEventListener('dragenter', (event) => {
+                if (!hasFiles(event)) return;
+                event.preventDefault();
+                dragDepth += 1;
+                setDragState(true);
+            });
+
+            window.addEventListener('dragover', (event) => {
+                if (!hasFiles(event)) return;
+                event.preventDefault();
+                if (event.dataTransfer) {
+                    event.dataTransfer.dropEffect = 'copy';
+                }
+                setDragState(true);
+            });
+
+            window.addEventListener('dragleave', (event) => {
+                if (!hasFiles(event)) return;
+                dragDepth = Math.max(0, dragDepth - 1);
+                if (dragDepth === 0) {
+                    setDragState(false);
+                }
+            });
+
+            window.addEventListener('drop', (event) => {
+                if (!hasFiles(event)) return;
+                event.preventDefault();
+                dragDepth = 0;
+                setDragState(false);
+                uploadFiles(event.dataTransfer.files).catch(handleError);
+            });
+        }
+
         function insertTextAtCursor(textarea, text) {
             if (!textarea) return;
             const value = String(text || '');
@@ -2760,7 +2843,6 @@
                         : t('run_status_idle');
             document.getElementById('composer-note').textContent =
                 t('composer_note_detail', {
-                    permission: formatPermissionLabel(appState.permissionMode),
                     agent: agentModeMeta(selectedAgentMode?.id || '')?.label || selectedAgentMode?.label || t('collaboration_off'),
                     attachmentSuffix: appState.attachments.length ? t('attachment_suffix', { count: appState.attachments.length }) : '',
                 });
@@ -4489,6 +4571,7 @@
                     event.target.value = '';
                 });
             });
+            bindComposerFileDrop();
             document.getElementById('messages').addEventListener('click', (event) => {
                 const loadAllButton = event.target.closest('[data-load-all-messages]');
                 if (loadAllButton) {

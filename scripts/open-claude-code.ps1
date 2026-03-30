@@ -1,3 +1,7 @@
+param(
+    [switch]$NoBrowser
+)
+
 $ErrorActionPreference = "Stop"
 . (Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "common-env.ps1")
 
@@ -57,4 +61,8 @@ for ($i = 0; $i -lt 20; $i++) {
     Start-Sleep -Seconds 1
 }
 
-Start-Process $ConsoleUrl
+if ($NoBrowser) {
+    Write-Output $ConsoleUrl
+} else {
+    Start-Process $ConsoleUrl
+}

@@ -43,7 +43,7 @@ The app also exposes a local settings dialog that writes these values into `.env
 powershell -ExecutionPolicy Bypass -File .\scripts\open-claude-code.ps1
 ```
 
-On Windows, the first launch now also builds `apps\desktop-windows\bin\Claude Code.app.exe`, creates or repairs the desktop shortcut `Claude Code.app.lnk`, and installs `cc.cmd` into `~/.local/bin`.
+On Windows, the first launch now also builds `apps\desktop-windows\bin\Claude Code.app.exe`, creates or repairs the desktop shortcut `Claude Code.app.lnk`, installs `cc.cmd` into `~/.local/bin`, and opens Claude Code in a standalone app window instead of a normal browser tab.
 
 Manual installers:
 
