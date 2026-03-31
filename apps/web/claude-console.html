@@ -1718,6 +1718,7 @@
                 model_probe_rate_limited: '当前 provider 对 {label} 触发了额度或频率限制（{errorCode}）。',
                 model_probe_auth_error: '当前 provider 的认证信息无法调用 {label}。',
                 model_probe_error: '暂时无法确认 {label} 是否可用，请在发送时留意返回提示。',
+                model_probe_switch_tip: '如需切换，请在 Claude Code 终端执行：{command}',
                 attached_files_label: '已附文件',
                 system_notice_busy: '[系统] 当前会话正在后台执行任务，已自动切到新会话继续，避免卡住。',
                 system_notice_system: '[系统] 当前会话属于系统事务线程，已自动切到新会话继续，避免把超长任务上下文带进手动聊天。',
@@ -1902,6 +1903,7 @@
                 model_probe_rate_limited: 'The current provider hit a rate or quota limit for {label} ({errorCode}).',
                 model_probe_auth_error: 'The current provider credentials cannot access {label}.',
                 model_probe_error: 'Could not confirm whether {label} is available right now. Watch the next response for details.',
+                model_probe_switch_tip: 'To switch manually, run this in the Claude Code terminal: {command}',
                 attached_files_label: 'Attached files',
                 system_notice_busy: '[System] This thread is already running in the background, so a new thread was opened automatically to keep the UI responsive.',
                 system_notice_system: '[System] This thread belongs to a system workflow, so a new chat was opened automatically to avoid dragging a long-running context into a manual conversation.',
@@ -3506,21 +3508,29 @@
             node.classList.toggle('ok', appState.modelRouteStatus.tone === 'ok' && Boolean(message));
         }
 
+        function buildCcSwitchHint(item) {
+            const routeId = String(item?.routeId || item?.id || '').trim();
+            if (!routeId || routeId === 'auto') return '';
+            return `cc switch ${routeId}`;
+        }
+
         function formatModelProbeMessage(payload, item) {
             const label = String(item?.label || item?.modelLabel || item?.model || appState.mode || '').trim();
             const errorCode = String(payload?.errorCode || '').trim();
             const reason = String(payload?.reason || '').trim();
+            const switchHint = buildCcSwitchHint(item);
+            const switchSuffix = switchHint ? ` ${t('model_probe_switch_tip', { command: switchHint })}` : '';
             if (reason === 'plan_unsupported') {
-                return { message: t('model_probe_plan_unsupported', { label, errorCode: errorCode || 'unknown' }), tone: 'warning' };
+                return { message: t('model_probe_plan_unsupported', { label, errorCode: errorCode || 'unknown' }) + switchSuffix, tone: 'warning' };
             }
             if (reason === 'rate_limited') {
-                return { message: t('model_probe_rate_limited', { label, errorCode: errorCode || 'unknown' }), tone: 'warning' };
+                return { message: t('model_probe_rate_limited', { label, errorCode: errorCode || 'unknown' }) + switchSuffix, tone: 'warning' };
             }
             if (reason === 'auth_error') {
-                return { message: t('model_probe_auth_error', { label }), tone: 'warning' };
+                return { message: t('model_probe_auth_error', { label }) + switchSuffix, tone: 'warning' };
             }
             if (payload?.supported === false) {
-                return { message: t('model_probe_error', { label }), tone: 'warning' };
+                return { message: t('model_probe_error', { label }) + switchSuffix, tone: 'warning' };
             }
             return { message: '', tone: '' };
         }

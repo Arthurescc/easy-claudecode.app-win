@@ -22,4 +22,6 @@ test('frontend uses provider-generic settings and a registry-driven model surfac
   assert.match(html, /appState\.modelCatalog/, 'frontend should track a registry-driven model catalog');
   assert.match(html, /id="model-route-status"/, 'frontend should expose a model availability status surface');
   assert.match(html, /function refreshModelRouteStatus\(/, 'frontend should probe model availability when selection changes');
+  assert.match(html, /cc switch/, 'frontend should guide users toward cc switch for provider-aware model changes');
+  assert.match(html, /function buildCcSwitchHint\(/, 'frontend should build a cc switch hint for the selected model');
 });
