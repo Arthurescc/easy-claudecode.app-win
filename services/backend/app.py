@@ -148,7 +148,7 @@ CLAUDE_CONSOLE_ERR_LOG = os.path.expanduser(
 IS_WINDOWS = os.name == "nt"
 CLAUDE_TERMINAL_APP = (os.getenv("CLAUDE_TERMINAL_APP", "powershell" if IS_WINDOWS else "Terminal") or ("powershell" if IS_WINDOWS else "Terminal")).strip()
 CLAUDE_TMUX_BIN = os.path.expanduser(os.getenv("CLAUDE_TMUX_BIN", "~/.local/bin/tmux"))
-CLAUDE_WEB_PERMISSION_MODE = (os.getenv("CLAUDE_WEB_PERMISSION_MODE", "bypassPermissions") or "bypassPermissions").strip()
+CLAUDE_WEB_PERMISSION_MODE = (os.getenv("CLAUDE_WEB_PERMISSION_MODE", "default") or "default").strip()
 CLAUDE_CHAT_TIMEOUT_SECONDS = int(os.getenv("CLAUDE_CHAT_TIMEOUT_SECONDS", "1800"))
 CLAUDE_QUICK_RUN_TIMEOUT_SECONDS = int(os.getenv("CLAUDE_QUICK_RUN_TIMEOUT_SECONDS", "180"))
 CLAUDE_LIBRARY_CACHE_TTL_SECONDS = float(os.getenv("CLAUDE_LIBRARY_CACHE_TTL_SECONDS", "15"))
@@ -2895,7 +2895,7 @@ def claude_console_chat():
     busy_session = _find_session_active_run(session_id) if session_id else None
     if busy_session:
         session_id = None
-    permission_mode = str(data.get("permissionMode") or CLAUDE_WEB_PERMISSION_MODE or "bypassPermissions").strip()
+    permission_mode = str(data.get("permissionMode") or CLAUDE_WEB_PERMISSION_MODE or "default").strip()
     attachments = data.get("attachments") if isinstance(data.get("attachments"), list) else []
     original_prompt = _compose_prompt_with_attachments(prompt, attachments)
     prepared_prompt = _prepare_claude_prompt(original_prompt, mode, agent_mode)
@@ -3000,7 +3000,7 @@ def claude_console_open_session():
     busy_session = _find_session_active_run(resume_session_id) if resume_session_id else None
     if busy_session:
         resume_session_id = ""
-    permission_mode = str(data.get("permissionMode") or CLAUDE_WEB_PERMISSION_MODE or "bypassPermissions").strip()
+    permission_mode = str(data.get("permissionMode") or CLAUDE_WEB_PERMISSION_MODE or "default").strip()
     launch = _open_terminal_script(
         _write_terminal_script(mode, prompt, continue_latest, resume_session_id, agent_mode, permission_mode)
     )
@@ -3029,7 +3029,7 @@ def claude_console_quick_run():
         return jsonify({"ok": False, "msg": "invalid json"}), 400
     mode = _normalize_claude_mode(data.get("mode"))
     agent_mode = _normalize_agent_mode(data.get("agentMode"))
-    permission_mode = str(data.get("permissionMode") or CLAUDE_WEB_PERMISSION_MODE or "bypassPermissions").strip()
+    permission_mode = str(data.get("permissionMode") or CLAUDE_WEB_PERMISSION_MODE or "default").strip()
     prompt = str(data.get("prompt") or "").strip()
     if not prompt:
         return jsonify({"ok": False, "msg": "请先输入 quick run 提示词"}), 400

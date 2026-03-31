@@ -1011,19 +1011,7 @@
         }
 
         .composer-field {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            min-width: 164px;
-        }
-
-        .composer-field-label {
-            font-family: var(--font-mono);
-            font-size: 11px;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            color: var(--muted);
-            padding-left: 2px;
+            min-width: 184px;
         }
 
         .composer-select {
@@ -1284,14 +1272,6 @@
                         <button class="soft-btn" id="btn-open-terminal">在终端继续</button>
                     </div>
                 </div>
-                <div class="workspace-status">
-                    <span class="mini-badge" id="current-model-badge">主链 glm-5 · 视觉 kimi-k2.5</span>
-                    <span class="mini-badge" id="current-agent-badge">Auto</span>
-                    <span class="mini-badge" id="current-permission-badge">全权限</span>
-                    <span class="mini-badge" id="active-runs-badge">活跃协作 0</span>
-                    <span class="mini-badge" id="tmux-badge">tmux 0</span>
-                    <span class="action-pill" id="run-status-pill">空闲</span>
-                </div>
             </header>
 
             <section class="workspace-body" id="workspace-body">
@@ -1311,11 +1291,9 @@
                             <button class="ghost-btn attach-btn" id="btn-attach-file" type="button">＋ 文件</button>
                             <input id="file-input" class="native-file-input" type="file" multiple aria-hidden="true" tabindex="-1" />
                             <div class="composer-field">
-                                <span class="composer-field-label" id="model-route-label">模型</span>
                                 <select class="composer-select" id="model-route"></select>
                             </div>
                             <div class="composer-field">
-                                <span class="composer-field-label" id="agent-mode-label">执行方法</span>
                                 <select class="composer-select" id="agent-mode"></select>
                             </div>
                         </div>
@@ -1333,9 +1311,7 @@
                     </div>
                     <div class="composer-hidden-control" aria-hidden="true">
                         <select class="composer-select" id="permission-mode" tabindex="-1">
-                            <option value="acceptEdits">自动接收改动</option>
-                            <option value="default">默认确认模式</option>
-                            <option value="bypassPermissions">全权限（不再询问）</option>
+                            <option value="default">Auto</option>
                         </select>
                     </div>
                 </div>
@@ -1463,8 +1439,6 @@
                 welcome_title: '直接开始新线程。',
                 settings_button: '设置',
                 open_terminal: '在终端继续',
-                model_label: '模型',
-                execution_method_label: '执行方法',
                 permission_web: '网页权限',
                 permission_accept_edits: '自动接收改动',
                 permission_default: '默认确认模式',
@@ -1554,7 +1528,7 @@
                 run_status_idle: '空闲',
                 run_status_running: '运行中 {count}',
                 run_status_streaming: '流式响应中{suffix}',
-                composer_note_detail: 'Enter 发送，Shift+Enter 换行；支持直接拖入文件；执行方法为 {agent}{attachmentSuffix}。',
+                composer_note_detail: 'Enter 发送，Shift+Enter 换行；支持直接拖入文件；协作方式为 {agent}{attachmentSuffix}。',
                 attachment_suffix: ' · 已附 {count} 个文件',
                 topic_general: '通用对话',
                 topic_desktop_files: '桌面文件',
@@ -1621,8 +1595,6 @@
                 welcome_title: 'Start a new thread right away.',
                 settings_button: 'Settings',
                 open_terminal: 'Continue in Terminal',
-                model_label: 'Model',
-                execution_method_label: 'Execution',
                 permission_web: 'Web permissions',
                 permission_accept_edits: 'Auto-accept edits',
                 permission_default: 'Confirm by default',
@@ -1712,7 +1684,7 @@
                 run_status_idle: 'Idle',
                 run_status_running: 'Running {count}',
                 run_status_streaming: 'Streaming{suffix}',
-                composer_note_detail: 'Press Enter to send, Shift+Enter for a new line; drag files in directly; execution: {agent}{attachmentSuffix}.',
+                composer_note_detail: 'Press Enter to send, Shift+Enter for a new line; drag files in directly; collaboration: {agent}{attachmentSuffix}.',
                 attachment_suffix: ' · {count} file(s) attached',
                 topic_general: 'General chat',
                 topic_desktop_files: 'Desktop files',
@@ -1850,7 +1822,7 @@
             availableModes: [],
             agentMode: 'auto',
             availableAgentModes: [],
-            permissionMode: 'bypassPermissions',
+            permissionMode: 'default',
             activeRunId: null,
             isStreaming: false,
             bootstrap: null,
@@ -1963,8 +1935,6 @@
                 ['btn-open-settings', 'settings_button'],
                 ['btn-open-terminal', 'open_terminal'],
                 ['btn-attach-file', 'attach_file'],
-                ['model-route-label', 'model_label'],
-                ['agent-mode-label', 'execution_method_label'],
                 ['btn-stop-run', 'stop'],
                 ['btn-send', 'send'],
                 ['sidebar-dialog-title', 'dialog_edit_session'],
@@ -2062,12 +2032,6 @@
 
         function summarizeSessionId(sessionId) {
             return String(sessionId || '').trim().slice(0, 8);
-        }
-
-        function formatPermissionLabel(mode) {
-            if (mode === 'bypassPermissions') return t('permission_bypass');
-            if (mode === 'acceptEdits') return t('permission_accept_edits');
-            return t('permission_default');
         }
 
         function formatBytes(size) {
@@ -2200,7 +2164,7 @@
             appState.folderRegistry = Array.isArray(payload.folders) ? payload.folders.map((item) => normalizeFolderName(item)).filter(Boolean) : [];
             appState.availableModes = payload.modes || appState.availableModes;
             appState.availableAgentModes = payload.agentModes || appState.availableAgentModes;
-            appState.permissionMode = payload.webDefaults?.permissionMode || 'bypassPermissions';
+            appState.permissionMode = 'default';
             if (payload.webDefaults?.locale) {
                 persistLocale(payload.webDefaults.locale);
             }
@@ -2635,8 +2599,12 @@
             const options = Array.isArray(appState.availableModes) && appState.availableModes.length
                 ? appState.availableModes
                 : [{ id: 'auto', label: 'Auto', description: modeMeta('auto')?.description || '' }];
+            const defaultRoute = String(appState.bootstrap?.routerConfig?.default || '').trim();
+            const defaultRouteModel = defaultRoute.includes(',') ? defaultRoute.split(',').slice(1).join(',') : defaultRoute;
             select.innerHTML = options.map((item) => `
-                <option value="${escapeHtml(item.id)}">${escapeHtml(modeMeta(item.id)?.label || item.label || item.id)}</option>
+                <option value="${escapeHtml(item.id)}">${escapeHtml(item.id === 'auto'
+                    ? (defaultRouteModel || modeMeta(item.id)?.label || item.label || item.id)
+                    : (modeMeta(item.id)?.label || item.label || item.id))}</option>
             `).join('');
             select.value = options.some((item) => item.id === appState.mode) ? appState.mode : 'auto';
         }
@@ -2802,10 +2770,6 @@
             const claudeOk = !!payload.claude?.versionOk;
             const routerOk = !!payload.health?.router?.ok;
             const proxyOk = !!payload.health?.proxy?.ok;
-            const activeRuns = Array.isArray(payload.activeRuns) ? payload.activeRuns : [];
-            const tmuxState = payload.tmux || {};
-            const activeRunCount = activeRuns.length;
-            const tmuxCount = Number(tmuxState.sessionCount || 0);
             const badgeMap = [
                 ['badge-claude', claudeOk, payload.claude?.version || t('label_claude_fallback')],
                 ['badge-router', routerOk, localePackKey() === 'zh-CN' ? '路由' : 'Router'],
@@ -2816,31 +2780,7 @@
                 node.className = `session-status-pill ${ok ? 'ok' : 'fail'}`;
                 node.textContent = label;
             });
-            document.getElementById('current-permission-badge').textContent = formatPermissionLabel(appState.permissionMode);
-            const selectedMode = selectedModeInfo();
             const selectedAgentMode = selectedAgentModeInfo();
-            const defaultRoute = payload.routerConfig?.default || 'dashscope-codingplan,glm-5';
-            const imageRoute = payload.routerConfig?.image || 'dashscope-codingplan,kimi-k2.5';
-            document.getElementById('current-model-badge').textContent =
-                appState.mode === 'auto' || !selectedMode
-                    ? t('auto_model_badge', { defaultRoute, imageRoute })
-                    : t('current_model_badge', {
-                        label: modeMeta(selectedMode.id)?.label || selectedMode.label,
-                        description: modeMeta(selectedMode.id)?.description || selectedMode.description,
-                    });
-            document.getElementById('current-agent-badge').textContent =
-                selectedAgentMode ? t('current_agent_badge', {
-                    label: agentModeMeta(selectedAgentMode.id)?.label || selectedAgentMode.label,
-                    description: agentModeMeta(selectedAgentMode.id)?.description || selectedAgentMode.description,
-                }) : t('collaboration_off');
-            document.getElementById('active-runs-badge').textContent = t('active_collab', { count: activeRunCount });
-            document.getElementById('tmux-badge').textContent = t('tmux_count', { count: tmuxCount });
-            document.getElementById('run-status-pill').textContent =
-                appState.isStreaming
-                    ? t('run_status_streaming', { suffix: activeRunCount ? ` · ${activeRunCount}` : '' })
-                    : activeRunCount
-                        ? t('run_status_running', { count: activeRunCount })
-                        : t('run_status_idle');
             document.getElementById('composer-note').textContent =
                 t('composer_note_detail', {
                     agent: agentModeMeta(selectedAgentMode?.id || '')?.label || selectedAgentMode?.label || t('collaboration_off'),
