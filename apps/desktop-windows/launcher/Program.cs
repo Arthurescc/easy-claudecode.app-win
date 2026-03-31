@@ -98,7 +98,7 @@ namespace EasyClaudeCodeLauncher
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
             };
-            processInfo.EnvironmentVariables["EASY_CLAUDECODE_AUTO_INSTALL_SHORTCUT"] = "0";
+            processInfo.EnvironmentVariables["EASY_CLAUDECODE_AUTO_INSTALL_SHORTCUT"] = "1";
             processInfo.EnvironmentVariables["EASY_CLAUDECODE_AUTO_INSTALL_CC"] = "0";
 
             using (var process = Process.Start(processInfo))

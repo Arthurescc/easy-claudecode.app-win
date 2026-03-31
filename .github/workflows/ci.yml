@@ -42,6 +42,7 @@ jobs:
           .\qa\windows-release\provider-registry-settings-smoke.ps1
           .\qa\windows-release\direct-reply-explicit-route-smoke.ps1
           .\qa\windows-release\explicit-model-no-fallback-smoke.ps1
+          .\qa\windows-release\launcher-shortcut-self-heal-smoke.ps1
           .\qa\windows-release\settings-default-route-smoke.ps1
           node --check services/backend/claude_code_dashscope_proxy.js
           node --check config/router/custom-router.js
