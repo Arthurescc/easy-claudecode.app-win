@@ -1202,6 +1202,11 @@
             grid-column: 1 / -1;
         }
 
+        .settings-grid .settings-help.span-2 {
+            grid-column: 1 / -1;
+            margin-top: -4px;
+        }
+
         .settings-help {
             margin-top: 4px;
             font-size: 12px;
@@ -1436,6 +1441,11 @@
                         <select class="overlay-input" id="settings-locale"></select>
                     </label>
                     <label class="overlay-field span-2">
+                        <span id="settings-default-route-label">默认模型路由</span>
+                        <select class="overlay-input" id="settings-default-route"></select>
+                    </label>
+                    <div class="settings-help span-2" id="settings-default-route-help"></div>
+                    <label class="overlay-field span-2">
                         <span id="settings-dashscope-key-label">DashScope Coding Plan API Key</span>
                         <input class="overlay-input" id="settings-dashscope-key" type="password" autocomplete="off" />
                     </label>
@@ -1555,8 +1565,11 @@
                 cancel: '取消',
                 save: '保存',
                 settings_title: '模型与 API 设置',
-                settings_message: '这里可以切换常用 API key、上游地址和全局界面语言。保存后重启 Claude Code.app，模型密钥和上游地址会完整生效。',
+                settings_message: '这里可以切换默认模型路由、常用 API key、上游地址和全局界面语言。保存后重启 Claude Code.app，模型与上游配置会完整生效。',
                 settings_locale: '界面语言',
+                settings_default_route: '默认模型路由',
+                settings_default_route_help: '留空表示不预设默认模型，用户可以继续用 cc switch 或 Claude Code 终端自行切换。',
+                settings_default_route_empty: '不预设默认模型（交给用户自行配置）',
                 settings_dashscope_key: 'DashScope Coding Plan API Key',
                 settings_opus_key: 'Opus 4.6 Thinking API Key',
                 settings_dashscope_upstream: 'DashScope 上游地址',
@@ -1735,8 +1748,11 @@
                 cancel: 'Cancel',
                 save: 'Save',
                 settings_title: 'Models & API settings',
-                settings_message: 'Switch your common API keys, upstreams, and global UI language here. Restart Claude Code.app after saving to fully apply model keys and upstream changes.',
+                settings_message: 'Switch the default model route, common API keys, upstreams, and global UI language here. Restart Claude Code.app after saving to fully apply model and upstream changes.',
                 settings_locale: 'Interface language',
+                settings_default_route: 'Default model route',
+                settings_default_route_help: 'Leave this empty to avoid forcing a default model. Users can keep using cc switch or the Claude Code terminal to choose their own route.',
+                settings_default_route_empty: 'No preset default route (let users choose)',
                 settings_dashscope_key: 'DashScope Coding Plan API Key',
                 settings_opus_key: 'Opus 4.6 Thinking API Key',
                 settings_dashscope_upstream: 'DashScope upstream',
@@ -2002,6 +2018,7 @@
             sessionLoadController: null,
             settingsBusy: false,
             settingsInstallers: {},
+            settingsRouteOptions: [],
             eccInstallBusy: false,
         };
 
@@ -2063,6 +2080,27 @@
             select.value = resolveLocale(appState.locale);
         }
 
+        function renderSettingsRouteOptions(selectedRoute = '') {
+            const select = document.getElementById('settings-default-route');
+            if (!select) return;
+            const routeOptions = Array.isArray(appState.settingsRouteOptions) ? appState.settingsRouteOptions : [];
+            const options = [
+                `<option value="">${escapeHtml(t('settings_default_route_empty'))}</option>`,
+                ...routeOptions.map((item) => {
+                    const routeId = String(item?.id || '').trim();
+                    const provider = String(item?.provider || '').trim();
+                    const model = String(item?.model || '').trim();
+                    const label = provider && model ? `${provider},${model}` : routeId;
+                    return `<option value="${escapeHtml(routeId)}">${escapeHtml(label)}</option>`;
+                }),
+            ];
+            select.innerHTML = options.join('');
+            select.value = String(selectedRoute || '').trim();
+            if (select.value !== String(selectedRoute || '').trim()) {
+                select.value = '';
+            }
+        }
+
         function applyLocale() {
             persistLocale(appState.locale);
             document.title = t('document_title');
@@ -2083,6 +2121,7 @@
                 ['sidebar-dialog-title', 'dialog_edit_session'],
                 ['settings-dialog-title', 'settings_title'],
                 ['settings-locale-label', 'settings_locale'],
+                ['settings-default-route-label', 'settings_default_route'],
                 ['settings-dashscope-key-label', 'settings_dashscope_key'],
                 ['settings-opus-key-label', 'settings_opus_key'],
                 ['settings-dashscope-upstream-label', 'settings_dashscope_upstream'],
@@ -2115,6 +2154,8 @@
             const sidebarClose = document.getElementById('sidebar-dialog-close');
             if (sidebarClose) sidebarClose.title = t('dialog_close');
             document.getElementById('settings-dialog-message').textContent = t('settings_message');
+            const defaultRouteHelp = document.getElementById('settings-default-route-help');
+            if (defaultRouteHelp) defaultRouteHelp.textContent = t('settings_default_route_help');
             const welcomeTitle = document.getElementById('welcome-title');
             if (welcomeTitle) welcomeTitle.textContent = t('welcome_title');
             const welcomeNote = document.getElementById('welcome-note');
@@ -2143,6 +2184,7 @@
                 });
             }
             renderLocaleOptions();
+            renderSettingsRouteOptions(document.getElementById('settings-default-route')?.value || '');
             updateSidebarChrome();
             renderModelOptions();
             renderAgentModeOptions();
@@ -3516,7 +3558,9 @@
             document.getElementById('settings-router-health').value = values.CLAUDE_ROUTER_HEALTH_URL || '';
             document.getElementById('settings-proxy-health').value = values.CLAUDE_PROXY_HEALTH_URL || '';
             appState.settingsInstallers = payload.installers || {};
+            appState.settingsRouteOptions = Array.isArray(payload.routeOptions) ? payload.routeOptions : [];
             renderLocaleOptions();
+            renderSettingsRouteOptions(values.EASY_CLAUDECODE_DEFAULT_ROUTE || '');
             document.getElementById('settings-locale').value = currentLocale();
             document.getElementById('settings-dialog-env-path').textContent = payload.envFile
                 ? t('env_file_label', { path: payload.envFile })
@@ -3545,6 +3589,7 @@
                             AICODELINK_OPUS46_API_KEY: document.getElementById('settings-opus-key').value.trim(),
                             CLAUDE_DASHSCOPE_PROXY_UPSTREAM: document.getElementById('settings-dashscope-upstream').value.trim(),
                             CLAUDE_OPUS_PROXY_UPSTREAM: document.getElementById('settings-opus-upstream').value.trim(),
+                            EASY_CLAUDECODE_DEFAULT_ROUTE: document.getElementById('settings-default-route').value.trim(),
                             CLAUDE_ROUTER_HEALTH_URL: document.getElementById('settings-router-health').value.trim(),
                             CLAUDE_PROXY_HEALTH_URL: document.getElementById('settings-proxy-health').value.trim(),
                             CLAUDE_CONSOLE_LOCALE: nextLocale,
@@ -3553,7 +3598,9 @@
                 });
                 persistLocale(nextLocale);
                 appState.settingsInstallers = payload.installers || appState.settingsInstallers;
+                appState.settingsRouteOptions = Array.isArray(payload.routeOptions) ? payload.routeOptions : appState.settingsRouteOptions;
                 applyLocale();
+                renderSettingsRouteOptions(payload.values?.EASY_CLAUDECODE_DEFAULT_ROUTE || '');
                 renderEverythingClaudeCodeSurface(payload.installers?.everythingClaudeCode || null);
                 setSettingsStatus(t('settings_saved'));
                 window.setTimeout(() => closeSettingsDialog(), 380);

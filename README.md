@@ -34,8 +34,8 @@
 
 ## 设置按钮 / Settings
 
-Web 控制台右上角提供“设置”按钮，可直接修改常用 API key、上游地址、健康检查 URL 和全局界面语言。保存后重启 `Claude Code.app` 即可完整应用。  
-The Settings button in the top-right corner lets users update API keys, upstream URLs, health-check URLs, and the global UI language. Restart `Claude Code.app` after saving to fully apply the changes.
+Web 控制台右上角提供“设置”按钮，可直接修改默认模型路由、常用 API key、上游地址、健康检查 URL 和全局界面语言。保存后重启 `Claude Code.app` 即可完整应用。 
+The Settings button in the top-right corner lets users update the default model route, API keys, upstream URLs, health-check URLs, and the global UI language. Restart `Claude Code.app` after saving to fully apply the changes.
 
 ## Windows 启动方式
 
@@ -50,12 +50,11 @@ The Settings button in the top-right corner lets users update API keys, upstream
 
 GitHub Releases 现在默认发布 Windows 安装器 `easy-claudecode.app-win-<version>-setup.exe`。安装器会提供桌面快捷方式、`cc.cmd` 和 `Everything Claude Code` 可选安装项，其中 ECC 默认不勾选，不会阻塞主应用安装。
 
-前端工作台保持原版交互；模型切换走命令行 `cc switch`，例如：
+前端工作台保持原版交互；模型切换既可以走命令行 `cc switch`，也可以在设置弹层里改默认模型路由，例如：
 
 ```powershell
 cc switch --list
 cc switch MiniMax-M2.7-highspeed
-cc switch dashscope-codingplan,glm-5
 ```
 
 ## Windows VM 回归

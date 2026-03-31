@@ -33,9 +33,9 @@ Fill in only the providers you want to use. `DASHSCOPE_CODINGPLAN_API_KEY` remai
 
 If you enable the Opus provider, also set `CLAUDE_OPUS_PROXY_UPSTREAM`. The public example no longer hardcodes a private upstream URL.
 
-The app also exposes a local settings dialog that writes these values into `.env` for you. After saving, restart the app so the router and proxy pick up the updated credentials.
+The app also exposes a local settings dialog that writes these values into `.env` for you, including the optional default model route. After saving, restart the app so the router and proxy pick up the updated credentials.
 
-`sync-router.ps1` / `sync-router.sh` now also mirrors the generated router config into `~/.claude-code-router/config.json` and updates `~/.claude/settings.json` with the current default route so recent Claude Code builds and `ccr` 2.x read the same model/provider pair.
+`sync-router.ps1` / `sync-router.sh` now also mirrors the generated router config into `~/.claude-code-router/config.json`. When you explicitly choose a default route, the same route can also be mirrored into Claude Code's settings so `ccr` 2.x and recent Claude Code builds stay aligned.
 
 ## Run on Windows
 
@@ -52,12 +52,11 @@ powershell -ExecutionPolicy Bypass -File .\scripts\install-desktop-shortcut.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\install-cc-launcher.ps1
 ```
 
-Quick model switching stays in CLI only:
+Quick model switching can stay in CLI, and the same default route can also be changed from the app settings dialog:
 
 ```powershell
 cc switch --list
 cc switch MiniMax-M2.7-highspeed
-cc switch dashscope-codingplan,glm-5
 ```
 
 也可以分开启动：

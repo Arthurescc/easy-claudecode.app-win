@@ -390,6 +390,7 @@ EDITABLE_SETTINGS_FIELDS = (
     "AICODELINK_OPUS46_API_KEY",
     "CLAUDE_DASHSCOPE_PROXY_UPSTREAM",
     "CLAUDE_OPUS_PROXY_UPSTREAM",
+    "EASY_CLAUDECODE_DEFAULT_ROUTE",
     "CLAUDE_ROUTER_HEALTH_URL",
     "CLAUDE_PROXY_HEALTH_URL",
     "CLAUDE_CONSOLE_LOCALE",
@@ -399,6 +400,7 @@ EDITABLE_SETTINGS_DEFAULTS = {
     "AICODELINK_OPUS46_API_KEY": "",
     "CLAUDE_DASHSCOPE_PROXY_UPSTREAM": "https://api.minimaxi.com/anthropic/v1/messages",
     "CLAUDE_OPUS_PROXY_UPSTREAM": "https://aicodelink.shop/v1/messages",
+    "EASY_CLAUDECODE_DEFAULT_ROUTE": "",
     "CLAUDE_ROUTER_HEALTH_URL": "http://127.0.0.1:3456/health",
     "CLAUDE_PROXY_HEALTH_URL": "http://127.0.0.1:3460/health",
     "CLAUDE_CONSOLE_LOCALE": "zh-CN",
@@ -627,6 +629,51 @@ def _everything_claude_code_status() -> dict[str, object]:
 
     payload["status"] = "installed" if payload.get("installed") else "ready"
     return _json_safe(payload)
+
+
+def _route_options() -> list[dict[str, str]]:
+    candidates = [
+        CLAUDE_ROUTER_CONFIG_FILE,
+        os.path.join(SOURCE_ROOT, "config", "router", "config.example.json"),
+    ]
+    config_payload: dict[str, object] = {}
+    for candidate in candidates:
+        if not candidate or not os.path.exists(candidate):
+            continue
+        try:
+            with open(candidate, "r", encoding="utf-8") as fh:
+                loaded = json.load(fh)
+            if isinstance(loaded, dict):
+                config_payload = loaded
+                break
+        except Exception:
+            continue
+
+    providers = config_payload.get("Providers") or config_payload.get("providers") or []
+    items: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for provider in providers:
+        if not isinstance(provider, dict):
+            continue
+        provider_name = str(provider.get("name") or "").strip()
+        if not provider_name:
+            continue
+        for model in provider.get("models") or []:
+            model_name = str(model or "").strip()
+            if not model_name:
+                continue
+            route_id = f"{provider_name},{model_name}"
+            if route_id in seen:
+                continue
+            seen.add(route_id)
+            items.append(
+                {
+                    "id": route_id,
+                    "provider": provider_name,
+                    "model": model_name,
+                }
+            )
+    return items
 
 
 def _run_everything_claude_code_install(target: str, profile: str) -> dict[str, object]:
@@ -969,8 +1016,6 @@ This is a complex code or software-delivery task.
 """.strip()
         text = f"{complex_code_guard}\n\n{text}"
     route_tag = _claude_route_tag(mode)
-    if not route_tag and effective_agent_mode in {"auto", "teams", "subagent"}:
-        route_tag = _claude_route_tag("glm5")
     return f"{route_tag}\n{text}".strip() if route_tag else text
 
 
@@ -3203,6 +3248,7 @@ def claude_console_settings():
             "ok": True,
             "envFile": EASY_CLAUDECODE_ENV_FILE,
             "values": _load_editable_settings(),
+            "routeOptions": _route_options(),
             "installers": {
                 "everythingClaudeCode": _everything_claude_code_status(),
             },
@@ -3231,6 +3277,7 @@ def claude_console_update_settings():
             "saved": True,
             "envFile": EASY_CLAUDECODE_ENV_FILE,
             "values": _load_editable_settings(),
+            "routeOptions": _route_options(),
             "installers": {
                 "everythingClaudeCode": _everything_claude_code_status(),
             },

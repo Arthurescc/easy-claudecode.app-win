@@ -10,6 +10,7 @@ test('welcome and settings surfaces expose the optional Everything Claude Code i
   assert.match(html, /id="welcome-ecc-card"/, 'welcome surface should include an ECC card');
   assert.match(html, /id="settings-ecc-card"/, 'settings dialog should include an ECC card');
   assert.match(html, /id="settings-ecc-install"/, 'settings dialog should include an ECC install button');
+  assert.match(html, /id="settings-default-route"/, 'settings dialog should expose model route selection');
   assert.match(html, /function renderEverythingClaudeCodeSurface\(/, 'frontend should render installer status');
   assert.match(html, /async function installEverythingClaudeCode\(/, 'frontend should support the install action');
 });
