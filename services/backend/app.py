@@ -3647,6 +3647,7 @@ def claude_console_openclaw_dispatch():
     if not isinstance(data, dict):
         return jsonify({"ok": False, "msg": "invalid json"}), 400
     prompt = str(data.get("prompt") or "").strip()
+    shell_selections = data.get("shellSelections") if isinstance(data.get("shellSelections"), list) else []
     if not prompt:
         return jsonify({"ok": False, "msg": "缺少 prompt"}), 400
 
@@ -3903,6 +3904,7 @@ def claude_console_quick_run():
     agent_mode = _normalize_agent_mode(data.get("agentMode"))
     permission_mode = _claude_normalize_permission_mode(data.get("permissionMode") or CLAUDE_WEB_PERMISSION_MODE or "auto")
     prompt = str(data.get("prompt") or "").strip()
+    shell_selections = data.get("shellSelections") if isinstance(data.get("shellSelections"), list) else []
     if not prompt:
         return jsonify({"ok": False, "msg": "请先输入 quick run 提示词"}), 400
     prepared_prompt = _prepare_claude_prompt(_apply_shell_selections_to_prompt(prompt, shell_selections), mode, agent_mode)

@@ -64,6 +64,35 @@ assert "If relevant, use these skills: Brainstorming." in shell_prompt
 assert "If relevant, use these MCP servers: Context7." in shell_prompt
 assert shell_prompt.endswith("User request:\nShip the fix"), shell_prompt
 
+client = app.app.test_client()
+original_run_capture = app._claude_run_capture
+try:
+    app._claude_run_capture = lambda *args, **kwargs: {
+        "ok": True,
+        "stdout": "ok",
+        "stderr": "",
+        "returncode": 0,
+        "timedOut": False,
+        "transport": "compat",
+        "transportError": "",
+    }
+    response = client.post(
+        "/claude-console/quick-run",
+        json={
+            "prompt": "Ship the fix",
+            "shellSelections": [
+                {"sectionId": "reasoning", "label": "Reasoning High"},
+                {"sectionId": "skills", "label": "Brainstorming"},
+            ],
+        },
+    )
+    assert response.status_code == 200, response.get_data(as_text=True)
+    quick_run_payload = response.get_json()
+    assert "Reasoning preference: Reasoning High." in str(quick_run_payload.get("preparedPrompt") or "")
+    assert "If relevant, use these skills: Brainstorming." in str(quick_run_payload.get("preparedPrompt") or "")
+finally:
+    app._claude_run_capture = original_run_capture
+
 original_permission_default = app.CLAUDE_WEB_PERMISSION_MODE
 try:
     app.CLAUDE_WEB_PERMISSION_MODE = "default"
