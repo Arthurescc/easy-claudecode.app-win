@@ -14,6 +14,8 @@ $StatePath = Join-Path $StateRoot "everything-claude-code.json"
 $RepoUrl = "https://github.com/affaan-m/everything-claude-code.git"
 $KnownTargets = @("claude", "cursor", "antigravity", "codex", "opencode")
 $KnownProfiles = @("core", "developer", "security", "research", "full")
+$BootstrapNpmVersion = "11.12.1"
+$BootstrapNpmTarballUrl = "https://registry.npmjs.org/npm/-/npm-$BootstrapNpmVersion.tgz"
 
 if ($KnownTargets -notcontains $Target) {
     throw "unsupported target: $Target"
@@ -34,6 +36,49 @@ function Get-GitRevision {
     } catch {
         return ""
     }
+}
+
+function Get-NodeCommand {
+    $candidate = Get-Command node -ErrorAction SilentlyContinue
+    if ($candidate) {
+        return $candidate.Source
+    }
+    $fallback = Join-Path $HOME ".local\bin\node.exe"
+    if (Test-Path $fallback) {
+        return $fallback
+    }
+    throw "node is required to install Everything Claude Code"
+}
+
+function Ensure-NpmCommand {
+    $candidate = Get-Command npm -ErrorAction SilentlyContinue
+    if ($candidate) {
+        return $candidate.Source
+    }
+
+    $nodePath = Get-NodeCommand
+    $bootstrapRoot = Join-Path $env:EASY_CLAUDECODE_HOME "tools\npm\$BootstrapNpmVersion"
+    $bootstrapPackageRoot = Join-Path $bootstrapRoot "package"
+    $npmCli = Join-Path $bootstrapPackageRoot "bin\npm-cli.js"
+    $shimPath = Join-Path $bootstrapRoot "npm.cmd"
+
+    if (-not (Test-Path $npmCli)) {
+        $archivePath = Join-Path $bootstrapRoot "npm.tgz"
+        New-Item -ItemType Directory -Force -Path $bootstrapRoot | Out-Null
+        Invoke-WebRequest -Uri $BootstrapNpmTarballUrl -OutFile $archivePath -UseBasicParsing
+        tar -xzf $archivePath -C $bootstrapRoot
+        if ($LASTEXITCODE -ne 0 -or -not (Test-Path $npmCli)) {
+            throw "failed to bootstrap npm from $BootstrapNpmTarballUrl"
+        }
+    }
+
+    $shimContent = @"
+@echo off
+"$nodePath" "$npmCli" %*
+"@
+    [System.IO.File]::WriteAllText($shimPath, $shimContent, [System.Text.UTF8Encoding]::new($false))
+    $env:PATH = "$bootstrapRoot;$env:PATH"
+    return $shimPath
 }
 
 function Read-State {
@@ -79,6 +124,8 @@ if ($StatusOnly) {
     Get-InstallStatus | ConvertTo-Json -Depth 6
     exit 0
 }
+
+Ensure-NpmCommand | Out-Null
 
 New-Item -ItemType Directory -Force -Path $VendorRoot | Out-Null
 

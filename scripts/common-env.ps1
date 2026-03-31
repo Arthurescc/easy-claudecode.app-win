@@ -3,6 +3,27 @@ $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = if ($env:EASY_CLAUDECODE_ROOT) { $env:EASY_CLAUDECODE_ROOT } else { (Resolve-Path (Join-Path $ScriptDir "..")).Path }
 $EnvFile = if ($env:EASY_CLAUDECODE_ENV_FILE) { $env:EASY_CLAUDECODE_ENV_FILE } else { Join-Path $RepoRoot ".env" }
+$HomeDir = if ($env:HOME) { $env:HOME } elseif ($HOME) { $HOME } else { [Environment]::GetFolderPath("UserProfile") }
+
+function Expand-EnvValue {
+    param([string]$Value)
+
+    $expanded = [string]$(if ($null -ne $Value) { $Value } else { "" })
+    if (-not $expanded) {
+        return ""
+    }
+
+    $expanded = $expanded.Replace('${HOME}', $HomeDir)
+    $expanded = $expanded.Replace('$HOME', $HomeDir)
+    $expanded = $expanded.Replace('%USERPROFILE%', $HomeDir)
+    if ($expanded -eq "~") {
+        return $HomeDir
+    }
+    if ($expanded.StartsWith("~/") -or $expanded.StartsWith("~\")) {
+        return (Join-Path $HomeDir $expanded.Substring(2))
+    }
+    return $expanded
+}
 
 if (Test-Path $EnvFile) {
     Get-Content $EnvFile | ForEach-Object {
@@ -16,11 +37,11 @@ if (Test-Path $EnvFile) {
         if (($Value.StartsWith('"') -and $Value.EndsWith('"')) -or ($Value.StartsWith("'") -and $Value.EndsWith("'"))) {
             $Value = $Value.Substring(1, $Value.Length - 2)
         }
+        $Value = Expand-EnvValue -Value $Value
         [Environment]::SetEnvironmentVariable($Key, $Value, "Process")
     }
 }
 
-$HomeDir = $HOME
 $EasyHome = if ($env:EASY_CLAUDECODE_HOME) { $env:EASY_CLAUDECODE_HOME } else { Join-Path $HomeDir ".easy-claudecode" }
 $RouterRuntime = if ($env:CLAUDE_ROUTER_RUNTIME_DIR) { $env:CLAUDE_ROUTER_RUNTIME_DIR } else { Join-Path $EasyHome "router" }
 
