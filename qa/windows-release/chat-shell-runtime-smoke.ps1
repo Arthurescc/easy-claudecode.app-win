@@ -51,6 +51,19 @@ default_args = []
 app._claude_append_permission_flags(default_args, "default")
 assert default_args == ["--permission-mode", "default"], default_args
 
+shell_prompt = app._apply_shell_selections_to_prompt(
+    "Ship the fix",
+    [
+        {"sectionId": "reasoning", "label": "Reasoning High"},
+        {"sectionId": "skills", "label": "Brainstorming"},
+        {"sectionId": "mcp", "label": "Context7"},
+    ],
+)
+assert "Reasoning preference: Reasoning High." in shell_prompt
+assert "If relevant, use these skills: Brainstorming." in shell_prompt
+assert "If relevant, use these MCP servers: Context7." in shell_prompt
+assert shell_prompt.endswith("User request:\nShip the fix"), shell_prompt
+
 original_permission_default = app.CLAUDE_WEB_PERMISSION_MODE
 try:
     app.CLAUDE_WEB_PERMISSION_MODE = "default"

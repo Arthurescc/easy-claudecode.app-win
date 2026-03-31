@@ -2740,6 +2740,40 @@ def _compose_prompt_with_attachments(prompt: str, attachments: list[dict] | None
     return "\n".join(header_lines).strip()
 
 
+def _apply_shell_selections_to_prompt(prompt: str, shell_selections: list[dict] | None) -> str:
+    safe_prompt = str(prompt or "").strip()
+    selections = [item for item in (shell_selections or []) if isinstance(item, dict)]
+    if not safe_prompt or not selections:
+        return safe_prompt
+
+    grouped: dict[str, list[str]] = {}
+    for item in selections:
+        section_id = str(item.get("sectionId") or "").strip().lower()
+        label = str(item.get("label") or item.get("id") or "").strip()
+        if not section_id or not label:
+            continue
+        grouped.setdefault(section_id, [])
+        if label not in grouped[section_id]:
+            grouped[section_id].append(label)
+
+    lines: list[str] = []
+    if grouped.get("reasoning"):
+        lines.append(f"Reasoning preference: {grouped['reasoning'][0]}.")
+    if grouped.get("personality"):
+        lines.append(f"Response personality: {grouped['personality'][0]}.")
+    if grouped.get("plan"):
+        lines.append(f"Plan behavior: {', '.join(grouped['plan'])}.")
+    if grouped.get("status"):
+        lines.append(f"Status focus: {', '.join(grouped['status'])}.")
+    if grouped.get("skills"):
+        lines.append(f"If relevant, use these skills: {', '.join(grouped['skills'])}.")
+    if grouped.get("mcp"):
+        lines.append(f"If relevant, use these MCP servers: {', '.join(grouped['mcp'])}.")
+    if not lines:
+        return safe_prompt
+    return "\n".join([*lines, "", "User request:", safe_prompt]).strip()
+
+
 def _path_within_roots(candidate: str, roots: list[str]) -> str | None:
     real_candidate = os.path.realpath(os.path.expanduser(candidate))
     for root in roots:
@@ -3725,7 +3759,8 @@ def claude_console_chat():
         session_id = None
     permission_mode = _claude_normalize_permission_mode(data.get("permissionMode") or CLAUDE_WEB_PERMISSION_MODE or "auto")
     attachments = data.get("attachments") if isinstance(data.get("attachments"), list) else []
-    original_prompt = _compose_prompt_with_attachments(prompt, attachments)
+    shell_selections = data.get("shellSelections") if isinstance(data.get("shellSelections"), list) else []
+    original_prompt = _apply_shell_selections_to_prompt(_compose_prompt_with_attachments(prompt, attachments), shell_selections)
     prepared_prompt = _prepare_claude_prompt(original_prompt, mode, agent_mode)
     agent_name = _resolve_agent_name(agent_mode, prompt, mode)
     autonomous_mode = _should_autocontinue_chat(prompt, agent_mode)
@@ -3789,7 +3824,7 @@ def claude_console_chat():
                     break
                 next_prompt = _prepare_claude_prompt(
                     _build_autonomous_chat_continue_prompt(
-                        original_prompt=prompt,
+                        original_prompt=original_prompt,
                         turn_index=turn_index + 1,
                         last_result=str(turn_done_event.get("result") or ""),
                         last_error=str(turn_done_event.get("stderr") or ""),
@@ -3830,8 +3865,16 @@ def claude_console_open_session():
     if busy_session:
         resume_session_id = ""
     permission_mode = _claude_normalize_permission_mode(data.get("permissionMode") or CLAUDE_WEB_PERMISSION_MODE or "auto")
+    shell_selections = data.get("shellSelections") if isinstance(data.get("shellSelections"), list) else []
     launch = _open_terminal_script(
-        _write_terminal_script(mode, prompt, continue_latest, resume_session_id, agent_mode, permission_mode)
+        _write_terminal_script(
+            mode,
+            _apply_shell_selections_to_prompt(prompt, shell_selections),
+            continue_latest,
+            resume_session_id,
+            agent_mode,
+            permission_mode,
+        )
     )
     if not launch.get("ok"):
         return jsonify({"ok": False, "msg": launch.get("error") or "打开 Terminal 失败"}), 500
@@ -3862,7 +3905,7 @@ def claude_console_quick_run():
     prompt = str(data.get("prompt") or "").strip()
     if not prompt:
         return jsonify({"ok": False, "msg": "请先输入 quick run 提示词"}), 400
-    prepared_prompt = _prepare_claude_prompt(prompt, mode, agent_mode)
+    prepared_prompt = _prepare_claude_prompt(_apply_shell_selections_to_prompt(prompt, shell_selections), mode, agent_mode)
     agent_name = _resolve_agent_name(agent_mode, prompt, mode)
     started_at = datetime.now()
     command = [CLAUDE_WRAPPER_PATH]

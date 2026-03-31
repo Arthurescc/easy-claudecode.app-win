@@ -16,6 +16,9 @@ assert "function syncMessageScrollState(" in html
 assert "function scrollMessagesToBottom(" in html
 assert "data-toggle-run-step" in html
 assert "appState.forceMessageScroll" in html and "appState.messageScrollDetached" in html
+assert "!appState.messageScrollDetached && (appState.pendingMessageScroll || messageShouldStickToBottom(scrollContainer))" in html
+assert "document.getElementById('workspace-body').addEventListener('scroll'" in html
+assert "document.getElementById('btn-scroll-bottom').addEventListener('click'" in html
 assert "btn-scroll-bottom" in html
 
 print("scroll autostick smoke ok")

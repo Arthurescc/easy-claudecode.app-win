@@ -2998,26 +2998,6 @@
             return findComposerChip('personality')?.label || 'Default';
         }
 
-        function buildShellPrompt(prompt) {
-            const rawPrompt = String(prompt || '').trim();
-            const chips = serializeComposerChips();
-            if (!rawPrompt || !chips.length) return rawPrompt;
-            const lines = [];
-            const grouped = chips.reduce((acc, chip) => {
-                const key = chip.sectionId;
-                acc[key] = acc[key] || [];
-                acc[key].push(chip);
-                return acc;
-            }, {});
-            if (grouped.reasoning?.[0]) lines.push(`Reasoning preference: ${grouped.reasoning[0].label}.`);
-            if (grouped.personality?.[0]) lines.push(`Response personality: ${grouped.personality[0].label}.`);
-            if (grouped.plan?.length) lines.push(`Plan behavior: ${grouped.plan.map((chip) => chip.label).join(', ')}.`);
-            if (grouped.status?.length) lines.push(`Status focus: ${grouped.status.map((chip) => chip.label).join(', ')}.`);
-            if (grouped.skills?.length) lines.push(`If relevant, use these skills: ${grouped.skills.map((chip) => chip.label).join(', ')}.`);
-            if (grouped.mcp?.length) lines.push(`If relevant, use these MCP servers: ${grouped.mcp.map((chip) => chip.label).join(', ')}.`);
-            return `${lines.join('\n')}\n\nUser request:\n${rawPrompt}`.trim();
-        }
-
         function renderContextUsageRing() {
             const usage = appState.chatShell?.contextUsage || EMPTY_CONTEXT_USAGE;
             const percent = Number.isFinite(Number(usage.percentUsed)) ? Math.max(0, Math.min(100, Number(usage.percentUsed))) : null;
@@ -3056,6 +3036,64 @@
             if (permissionNode) permissionNode.textContent = permissionLabel;
             if (branchNode) branchNode.textContent = branchLabel;
             renderContextUsageRing();
+        }
+
+        function setModelMode(nextMode) {
+            const safeMode = String(nextMode || 'auto').trim() || 'auto';
+            appState.mode = safeMode;
+            const select = document.getElementById('model-route');
+            if (select) select.value = safeMode;
+            const selected = selectedModelCatalogItem();
+            if (safeMode === 'auto') {
+                setComposerChips((appState.composerChips || []).filter((chip) => chip.sectionId !== 'model'));
+            } else if (selected) {
+                upsertComposerChip('model', {
+                    id: selected.id,
+                    label: selected.label || selected.modelLabel || selected.id,
+                    description: selected.description || '',
+                    value: selected.id,
+                });
+            }
+            updateTopBadges();
+            refreshModelRouteStatus({ force: true }).catch(handleError);
+        }
+
+        function cycleModelSelection(step = 1) {
+            const options = resolveModelCatalog(appState.modelCatalog, appState.availableModes);
+            if (!options.length) return;
+            const currentIndex = Math.max(options.findIndex((item) => item.id === appState.mode), 0);
+            const nextIndex = (currentIndex + step + options.length) % options.length;
+            setModelMode(options[nextIndex]?.id || 'auto');
+        }
+
+        function permissionModeOptions() {
+            return Array.from(document.getElementById('permission-mode')?.options || []).map((option) => String(option.value || '').trim()).filter(Boolean);
+        }
+
+        function setPermissionMode(nextMode) {
+            const safeMode = String(nextMode || appState.chatShell?.permissionDefault || 'auto').trim() || 'auto';
+            appState.permissionMode = safeMode;
+            const select = document.getElementById('permission-mode');
+            if (select) select.value = safeMode;
+            updateTopBadges();
+        }
+
+        function cyclePermissionSelection(step = 1) {
+            const options = permissionModeOptions();
+            if (!options.length) return;
+            const currentIndex = Math.max(options.indexOf(String(appState.permissionMode || '').trim()), 0);
+            const nextIndex = (currentIndex + step + options.length) % options.length;
+            setPermissionMode(options[nextIndex] || 'auto');
+        }
+
+        function cycleReasoningSelection(step = 1) {
+            const options = slashChoicesForSection('reasoning');
+            if (!options.length) return;
+            const currentId = findComposerChip('reasoning')?.id || `reasoning-${String(appState.reasoningMode || 'medium').trim()}`;
+            const currentIndex = Math.max(options.findIndex((item) => item.id === currentId), 0);
+            const nextIndex = (currentIndex + step + options.length) % options.length;
+            const choice = options[nextIndex];
+            if (choice) upsertComposerChip('reasoning', choice);
         }
 
         function slashChoicesForSection(sectionId) {
@@ -5671,7 +5709,6 @@
             const input = document.getElementById('composer-input');
             const prompt = input.value.trim();
             if (!prompt || appState.isStreaming) return;
-            const preparedPrompt = buildShellPrompt(prompt);
             const shellSelections = serializeComposerChips();
             const queuedAttachments = [...appState.attachments];
             const busyRun = findBusyRunForSession(appState.selectedSessionId);
@@ -5716,7 +5753,7 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     sessionId: requestSessionId,
-                    prompt: preparedPrompt,
+                    prompt,
                     shellSelections,
                     attachments: queuedAttachments,
                     mode: appState.mode,
@@ -5965,24 +6002,13 @@
                 openAttachmentPicker();
             });
             document.getElementById('shell-model-pill').addEventListener('click', () => {
-                document.getElementById('model-route')?.focus();
+                cycleModelSelection(1);
             });
             document.getElementById('shell-permission-pill').addEventListener('click', () => {
-                appState.permissionMode = 'auto';
-                document.getElementById('permission-mode').value = 'auto';
-                updateTopBadges();
+                cyclePermissionSelection(1);
             });
             document.getElementById('shell-reasoning-pill').addEventListener('click', () => {
-                const order = ['low', 'medium', 'high'];
-                const current = String(appState.reasoningMode || 'medium').trim();
-                const currentIndex = Math.max(order.indexOf(current), 0);
-                const next = order[(currentIndex + 1) % order.length];
-                upsertComposerChip('reasoning', {
-                    id: `reasoning-${next}`,
-                    label: `Reasoning ${next.charAt(0).toUpperCase()}${next.slice(1)}`,
-                    description: '',
-                    value: next,
-                });
+                cycleReasoningSelection(1);
             });
             document.getElementById('session-search').addEventListener('input', (event) => {
                 appState.search = event.target.value.trim();
@@ -6021,24 +6047,10 @@
                 renderSidebar();
             });
             document.getElementById('permission-mode').addEventListener('change', (event) => {
-                appState.permissionMode = event.target.value;
-                updateTopBadges();
+                setPermissionMode(event.target.value);
             });
             document.getElementById('model-route').addEventListener('change', (event) => {
-                appState.mode = event.target.value || 'auto';
-                const selected = selectedModelCatalogItem();
-                if (appState.mode === 'auto') {
-                    appState.composerChips = (appState.composerChips || []).filter((chip) => chip.sectionId !== 'model');
-                } else if (selected) {
-                    upsertComposerChip('model', {
-                        id: selected.id,
-                        label: selected.label || selected.modelLabel || selected.id,
-                        description: selected.description || '',
-                        value: selected.id,
-                    });
-                }
-                updateTopBadges();
-                refreshModelRouteStatus({ force: true }).catch(handleError);
+                setModelMode(event.target.value || 'auto');
             });
             document.getElementById('agent-mode').addEventListener('change', (event) => {
                 appState.agentMode = event.target.value || 'auto';

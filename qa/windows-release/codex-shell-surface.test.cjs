@@ -12,4 +12,10 @@ test('codex shell surface exposes context ring, slash chooser, and run-step cont
   assert.match(html, /function openSlashChooser\(/, 'frontend should expose slash chooser opening');
   assert.match(html, /function renderComposerChips\(/, 'frontend should render structured composer chips');
   assert.match(html, /function toggleRunStepExpanded\(/, 'frontend should support run-step collapse and expand');
+  assert.match(html, /function cycleModelSelection\(/, 'top model pill should be a real selector');
+  assert.match(html, /function cyclePermissionSelection\(/, 'top permission pill should be a real selector');
+  assert.match(html, /function cycleReasoningSelection\(/, 'top reasoning pill should be a real selector');
+  assert.match(html, /shellSelections/, 'frontend should submit structured shell selections');
+  assert.match(html, /prompt,\s*\n\s*shellSelections,/, 'frontend should send raw prompt alongside shell selections');
+  assert.doesNotMatch(html, /prompt:\s*preparedPrompt/, 'frontend should not rewrite the main prompt client-side');
 });
