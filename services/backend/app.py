@@ -450,6 +450,8 @@ def _run_capture(args: list[str], *, cwd: str, timeout: int) -> dict:
             env=clean_env,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=timeout,
             check=False,
         )
@@ -2554,10 +2556,11 @@ def _read_mcp_servers() -> list[dict]:
         if ":" not in line or " - " not in line:
             continue
         name = line.split(":", 1)[0].strip()
-        if "✓ Connected" in line:
-            status_map[name] = "connected"
-        elif "✗ Failed to connect" in line:
+        lower_line = line.lower()
+        if "failed to connect" in lower_line:
             status_map[name] = "failed"
+        elif "connected" in lower_line:
+            status_map[name] = "connected"
     items: list[dict] = []
     for name, config in sorted(server_map.items()):
         if not isinstance(config, dict):

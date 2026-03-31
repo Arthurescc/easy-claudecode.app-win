@@ -1170,6 +1170,17 @@ def _spawn_stream_process(cmd: List[str], cwd: str) -> tuple[subprocess.Popen, Q
         return process, stream_queue, "pipe", str(exc)
 
 
+def _should_emit_pty_fallback_notice(transport: str, transport_error: str) -> bool:
+    if str(transport or "").strip() == "pty":
+        return False
+    detail = str(transport_error or "").strip().lower()
+    if not detail:
+        return True
+    if "unsupported on this platform" in detail:
+        return False
+    return True
+
+
 def run_claude_capture(
     claude_bin: str,
     workspace_root: str,
@@ -1305,12 +1316,12 @@ def stream_claude_session(
         "requestedSessionId": session_id,
         "transport": transport,
     }
-    if transport != "pty":
+    if _should_emit_pty_fallback_notice(transport, transport_error):
         yield {
             "type": "system_notice",
             "runId": run_id,
             "sessionId": actual_session_id,
-            "message": "系统 PTY 资源不足，已自动切换为兼容执行模式继续任务。",
+            "message": "系统 PTY 通道不可用，已自动切换为兼容执行模式继续任务。",
             "transport": transport,
             "detail": transport_error,
         }

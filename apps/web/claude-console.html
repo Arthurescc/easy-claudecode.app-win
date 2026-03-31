@@ -1526,6 +1526,8 @@
         const EMPTY_LIBRARY = { automations: [], skills: [], agents: [], mcps: [], counts: { automations: 0, skills: 0, agents: 0, mcps: 0 } };
         const BOOTSTRAP_CACHE_KEY = 'claude-console-bootstrap-cache-v3';
         const FOLDER_COLLAPSE_KEY = 'claude-console-folder-collapse-v1';
+        const LIBRARY_COLLAPSE_KEY = 'claude-console-library-collapse-v1';
+        const LIBRARY_SECTIONS = ['agents', 'skills', 'mcps'];
         const BACKGROUND_REFRESH_MS = 800;
         const FULL_BOOTSTRAP_REFRESH_MS = 30000;
         const SIDEBAR_INTERACTION_HOLD_MS = 1400;
@@ -1630,6 +1632,9 @@
                 empty_automations: '没有可显示的自动化。',
                 loading_skills: '正在同步技能、Agents 和 MCP...',
                 empty_skills: '没有可显示的技能、代理或 MCP。',
+                empty_agents: '当前没有可显示的 Agents。',
+                empty_library_skills: '当前没有可显示的 Skills。',
+                empty_mcps: '当前还没有配置 MCP。',
                 refreshing_sessions: '正在刷新最新会话...',
                 syncing_sessions: '正在同步会话历史...',
                 empty_archived: '还没有已归档对话。',
@@ -1645,6 +1650,8 @@
                 delete_automation: '删除自动化',
                 collapse_folder: '收起文件夹',
                 expand_folder: '展开文件夹',
+                collapse_library_section: '收起分组',
+                expand_library_section: '展开分组',
                 rename_folder_button: '改文件夹标题',
                 delete_session_heading: '删除会话',
                 delete_session_message: '删除会话“{title}”后，会被移到回收区。',
@@ -1815,6 +1822,9 @@
                 empty_automations: 'No automations to show.',
                 loading_skills: 'Syncing skills, agents, and MCP...',
                 empty_skills: 'No skills, agents, or MCP to show.',
+                empty_agents: 'No agents to show right now.',
+                empty_library_skills: 'No skills to show right now.',
+                empty_mcps: 'No MCP servers configured yet.',
                 refreshing_sessions: 'Refreshing recent threads...',
                 syncing_sessions: 'Syncing conversation history...',
                 empty_archived: 'No archived threads yet.',
@@ -1830,6 +1840,8 @@
                 delete_automation: 'Delete automation',
                 collapse_folder: 'Collapse folder',
                 expand_folder: 'Expand folder',
+                collapse_library_section: 'Collapse section',
+                expand_library_section: 'Expand section',
                 rename_folder_button: 'Rename folder',
                 delete_session_heading: 'Delete thread',
                 delete_session_message: 'Deleting thread "{title}" will move it to the recycle area.',
@@ -2032,6 +2044,7 @@
             sessionLoadingId: null,
             sessionActionPending: {},
             folderCollapse: {},
+            libraryCollapse: {},
             dialogBusy: false,
             thinkingExpanded: {},
             expandedBlocks: {},
@@ -2426,11 +2439,45 @@
             }
         }
 
+        function restoreLibraryCollapseState() {
+            const state = LIBRARY_SECTIONS.reduce((acc, section) => {
+                acc[section] = false;
+                return acc;
+            }, {});
+            try {
+                const raw = window.localStorage.getItem(LIBRARY_COLLAPSE_KEY);
+                if (!raw) return state;
+                const payload = JSON.parse(raw);
+                if (payload && typeof payload === 'object') {
+                    LIBRARY_SECTIONS.forEach((section) => {
+                        if (Object.prototype.hasOwnProperty.call(payload, section)) {
+                            state[section] = Boolean(payload[section]);
+                        }
+                    });
+                }
+            } catch (error) {
+                console.warn('library collapse restore failed', error);
+            }
+            return state;
+        }
+
         function saveFolderCollapseState() {
             try {
                 window.localStorage.setItem(FOLDER_COLLAPSE_KEY, JSON.stringify(appState.folderCollapse || {}));
             } catch (error) {
                 console.warn('folder collapse save failed', error);
+            }
+        }
+
+        function saveLibraryCollapseState() {
+            try {
+                const payload = {};
+                LIBRARY_SECTIONS.forEach((section) => {
+                    payload[section] = !!appState.libraryCollapse?.[section];
+                });
+                window.localStorage.setItem(LIBRARY_COLLAPSE_KEY, JSON.stringify(payload));
+            } catch (error) {
+                console.warn('library collapse save failed', error);
             }
         }
 
@@ -3253,6 +3300,7 @@
                     skills: skills.map((item) => item.name || ''),
                     agents: agents.map((item) => item.name || ''),
                     mcps: mcps.map((item) => `${item.name || ''}:${item.status || ''}`),
+                    libraryCollapse: JSON.stringify(appState.libraryCollapse || {}),
                 });
                 if (appState.bootstrapLoading && !total) {
                     if (force || renderSignature !== appState.sidebarRenderSignature) {
@@ -3269,11 +3317,28 @@
                         </div>
                     </div>
                 `).join('');
+                const renderLibrarySection = (key, heading, items, emptyMessage) => {
+                    const collapsed = !!appState.libraryCollapse[key];
+                    const toggleTitle = collapsed ? t('expand_library_section') : t('collapse_library_section');
+                    return `
+                        <div class="group-block folder-block">
+                            <div class="folder-header">
+                                <button class="folder-toggle-btn" type="button" data-library-toggle="${escapeHtml(key)}" title="${escapeHtml(toggleTitle)}">
+                                    <span class="folder-chevron">${collapsed ? '▸' : '▾'}</span>
+                                    <span class="folder-name">${escapeHtml(heading)}</span>
+                                </button>
+                            </div>
+                            <div class="session-list ${collapsed ? 'is-collapsed' : ''}">
+                                ${items.length ? renderCards(items, key) : `<div class="empty-panel">${escapeHtml(emptyMessage)}</div>`}
+                            </div>
+                        </div>
+                    `;
+                };
                 const html = total ? `
                     <div class="library-list">
-                        ${agents.length ? `<div class="group-block"><div class="group-label">${escapeHtml(t('agents_heading'))}</div>${renderCards(agents, 'agent')}</div>` : ''}
-                        ${skills.length ? `<div class="group-block"><div class="group-label">${escapeHtml(t('skills_heading'))}</div>${renderCards(skills, 'skill')}</div>` : ''}
-                        ${mcps.length ? `<div class="group-block"><div class="group-label">MCP</div>${renderCards(mcps, 'mcp')}</div>` : ''}
+                        ${renderLibrarySection('agents', t('agents_heading'), agents, t('empty_agents'))}
+                        ${renderLibrarySection('skills', t('skills_heading'), skills, t('empty_library_skills'))}
+                        ${renderLibrarySection('mcps', t('mcp_heading'), mcps, t('empty_mcps'))}
                     </div>
                 ` : `<div class="empty-panel">${escapeHtml(t('empty_skills'))}</div>`;
                 if (force || renderSignature !== appState.sidebarRenderSignature) {
@@ -3386,6 +3451,14 @@
             if (!key) return;
             appState.folderCollapse[key] = !appState.folderCollapse[key];
             saveFolderCollapseState();
+            renderSidebar();
+        }
+
+        function toggleLibrarySectionCollapsed(section) {
+            const key = String(section || '').trim();
+            if (!LIBRARY_SECTIONS.includes(key)) return;
+            appState.libraryCollapse[key] = !appState.libraryCollapse[key];
+            saveLibraryCollapseState();
             renderSidebar();
         }
 
@@ -4086,6 +4159,13 @@
             if (folderToggle) {
                 noteSidebarInteraction(1200);
                 toggleFolderCollapsed(folderToggle.dataset.folderToggle || '');
+                return;
+            }
+
+            const libraryToggle = event.target.closest('[data-library-toggle]');
+            if (libraryToggle) {
+                noteSidebarInteraction(1200);
+                toggleLibrarySectionCollapsed(libraryToggle.dataset.libraryToggle || '');
                 return;
             }
 
@@ -5300,6 +5380,7 @@
         }
 
         appState.folderCollapse = restoreFolderCollapseState();
+        appState.libraryCollapse = restoreLibraryCollapseState();
         persistLocale(appState.locale);
         wireUi();
         startBackgroundRefresh();
