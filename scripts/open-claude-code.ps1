@@ -4,6 +4,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 . (Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "common-env.ps1")
+$env:CLAUDE_WEB_PERMISSION_MODE = if ($env:CLAUDE_WEB_PERMISSION_MODE) { $env:CLAUDE_WEB_PERMISSION_MODE } else { "auto" }
 
 $BackendStdoutLog = Join-Path $env:CLAUDE_CONSOLE_LOG_ROOT "claude-console-backend.stdout.log"
 $BackendStderrLog = Join-Path $env:CLAUDE_CONSOLE_LOG_ROOT "claude-console-backend.stderr.log"

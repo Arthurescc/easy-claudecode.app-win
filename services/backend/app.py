@@ -25,6 +25,7 @@ from flask import Flask, Response, jsonify, make_response, request, stream_with_
 from werkzeug.exceptions import HTTPException
 
 from claude_console_utils import (
+    append_permission_flags as _claude_append_permission_flags,
     cleanup_empty_sessions as _claude_cleanup_empty_sessions,
     create_folder as _claude_create_folder,
     delete_session as _claude_delete_session,
@@ -32,9 +33,11 @@ from claude_console_utils import (
     derive_session_topic as _claude_derive_session_topic,
     ensure_meta_store as _claude_ensure_meta_store,
     get_session_detail as _claude_get_session_detail,
+    latest_session_context_usage as _claude_latest_session_context_usage,
     list_active_runs as _claude_list_active_runs,
     list_folder_registry as _claude_list_folder_registry,
     list_sessions as _claude_list_sessions,
+    normalize_permission_mode as _claude_normalize_permission_mode,
     project_sessions_dir as _claude_project_sessions_dir,
     rename_folder as _claude_rename_folder,
     save_meta_store as _claude_save_meta_store,
@@ -149,7 +152,7 @@ CLAUDE_CONSOLE_ERR_LOG = os.path.expanduser(
 IS_WINDOWS = os.name == "nt"
 CLAUDE_TERMINAL_APP = (os.getenv("CLAUDE_TERMINAL_APP", "powershell" if IS_WINDOWS else "Terminal") or ("powershell" if IS_WINDOWS else "Terminal")).strip()
 CLAUDE_TMUX_BIN = os.path.expanduser(os.getenv("CLAUDE_TMUX_BIN", "~/.local/bin/tmux"))
-CLAUDE_WEB_PERMISSION_MODE = (os.getenv("CLAUDE_WEB_PERMISSION_MODE", "default") or "default").strip()
+CLAUDE_WEB_PERMISSION_MODE = _claude_normalize_permission_mode(os.getenv("CLAUDE_WEB_PERMISSION_MODE", "auto"))
 CLAUDE_CHAT_TIMEOUT_SECONDS = int(os.getenv("CLAUDE_CHAT_TIMEOUT_SECONDS", "1800"))
 CLAUDE_QUICK_RUN_TIMEOUT_SECONDS = int(os.getenv("CLAUDE_QUICK_RUN_TIMEOUT_SECONDS", "180"))
 CLAUDE_LIBRARY_CACHE_TTL_SECONDS = float(os.getenv("CLAUDE_LIBRARY_CACHE_TTL_SECONDS", "15"))
@@ -2746,6 +2749,109 @@ def _path_within_roots(candidate: str, roots: list[str]) -> str | None:
     return None
 
 
+def _chat_shell_payload(
+    *,
+    library: dict[str, object],
+    model_catalog: list[dict[str, object]],
+    setup_status: dict[str, object],
+    default_route: str,
+) -> dict[str, object]:
+    context_usage = _claude_latest_session_context_usage(CLAUDE_PROJECT_SESSIONS_DIR)
+    mcp_items = [
+        {
+            "id": str(item.get("id") or ""),
+            "label": str(item.get("name") or item.get("id") or "MCP").strip(),
+            "description": str(item.get("description") or "").strip(),
+            "status": str(item.get("status") or "unknown").strip(),
+            "kind": "mcp",
+        }
+        for item in (library.get("mcps") or [])
+        if isinstance(item, dict)
+    ]
+    model_items = [
+        {
+            "id": str(item.get("id") or ""),
+            "label": str(item.get("label") or item.get("modelLabel") or item.get("model") or "Model").strip(),
+            "description": str(item.get("description") or "").strip(),
+            "provider": str(item.get("providerLabel") or "").strip(),
+            "kind": "model",
+        }
+        for item in model_catalog
+        if isinstance(item, dict)
+    ]
+    reasoning_items = [
+        {"id": "reasoning-low", "label": "Reasoning Low", "description": "Fast, lightweight reasoning.", "value": "low", "kind": "reasoning"},
+        {"id": "reasoning-medium", "label": "Reasoning Medium", "description": "Balanced reasoning depth.", "value": "medium", "kind": "reasoning"},
+        {"id": "reasoning-high", "label": "Reasoning High", "description": "Deeper multi-step reasoning.", "value": "high", "kind": "reasoning"},
+    ]
+    personality_items = [
+        {"id": "personality-default", "label": "Default", "description": "Balanced Claude Code behavior.", "value": "default", "kind": "personality"},
+        {"id": "personality-collaborative", "label": "Collaborative", "description": "Pairing-oriented, supportive responses.", "value": "collaborative", "kind": "personality"},
+        {"id": "personality-systematic", "label": "Systematic", "description": "Sharper debugging and review posture.", "value": "systematic", "kind": "personality"},
+    ]
+    skills_items = [
+        {
+            "id": str(item.get("id") or ""),
+            "label": str(item.get("name") or item.get("id") or "Skill").strip(),
+            "description": str(item.get("description") or "").strip(),
+            "source": str(item.get("source") or "").strip(),
+            "kind": "skill",
+        }
+        for item in (library.get("skills") or [])
+        if isinstance(item, dict)
+    ]
+    status_items = [
+        {
+            "id": "status-context",
+            "label": "Context Usage",
+            "description": (
+                f"{int(context_usage.get('usedTokens') or 0)} tokens used"
+                if context_usage.get("available")
+                else "No recent context usage yet"
+            ),
+            "kind": "status",
+        },
+        {
+            "id": "status-route",
+            "label": "Default Route",
+            "description": default_route or "Auto",
+            "kind": "status",
+        },
+        {
+            "id": "status-setup",
+            "label": "Connection Status",
+            "description": str(setup_status.get("recommendedPath") or "settings").strip(),
+            "kind": "status",
+        },
+        {
+            "id": "status-library",
+            "label": "Library Status",
+            "description": (
+                f"{len(skills_items)} skills, {len(mcp_items)} MCP, {len(library.get('agents') or [])} agents"
+            ),
+            "kind": "status",
+        },
+    ]
+    plan_items = [
+        {"id": "plan-enable", "label": "Plan Mode", "description": "Structure work into explicit plan steps.", "value": "plan", "kind": "plan"},
+        {"id": "plan-review", "label": "Review Checkpoints", "description": "Keep review gates visible during execution.", "value": "review", "kind": "plan"},
+    ]
+    slash_sections = [
+        {"id": "mcp", "label": "MCP", "count": len(mcp_items), "items": mcp_items},
+        {"id": "model", "label": "Model", "count": len(model_items), "items": model_items},
+        {"id": "reasoning", "label": "Reasoning", "count": len(reasoning_items), "items": reasoning_items},
+        {"id": "personality", "label": "Personality", "count": len(personality_items), "items": personality_items},
+        {"id": "status", "label": "Status", "count": len(status_items), "items": status_items},
+        {"id": "plan", "label": "Plan", "count": len(plan_items), "items": plan_items},
+        {"id": "skills", "label": "Skills", "count": len(skills_items), "items": skills_items},
+    ]
+    return {
+        "permissionDefault": "auto",
+        "contextUsage": context_usage,
+        "slashSections": slash_sections,
+    }
+
+
 def _build_status(force_refresh: bool = False) -> dict:
     now = time.time()
     with STATUS_CACHE_LOCK:
@@ -2774,6 +2880,13 @@ def _build_status(force_refresh: bool = False) -> dict:
     library_payload = _build_library()
     auth_status = _parse_claude_auth_status()
     route_options = _route_options()
+    setup_status = _setup_status_payload(
+        values=current_settings,
+        auth_status=auth_status,
+        library=library_payload,
+        route_options=route_options,
+    )
+    model_catalog = _model_catalog()
     for provider in _router_provider_entries(router_config):
         provider_name = str(provider.get("name") or "").strip()
         provider_id = _provider_registry_id(provider_name)
@@ -2831,8 +2944,8 @@ def _build_status(force_refresh: bool = False) -> dict:
             "openclawOpsSessionId": _resolve_openclaw_fixed_session_id() if CLAUDE_CONSOLE_ENABLE_OPENCLAW else "",
         },
         "openclawDispatch": _dispatch_state_snapshot_locked(),
-        "modes": _model_catalog(),
-        "modelCatalog": _model_catalog(),
+        "modes": model_catalog,
+        "modelCatalog": model_catalog,
         "agentModes": [
             {
                 "id": agent_mode,
@@ -2847,14 +2960,15 @@ def _build_status(force_refresh: bool = False) -> dict:
             "continueLatest": "claude -c",
             "quickRun": "claude -p",
         },
-        "setupStatus": _setup_status_payload(
-            values=current_settings,
-            auth_status=auth_status,
+        "setupStatus": setup_status,
+        "chatShell": _chat_shell_payload(
             library=library_payload,
-            route_options=route_options,
+            model_catalog=model_catalog,
+            setup_status=setup_status,
+            default_route=str(current_settings.get("EASY_CLAUDECODE_DEFAULT_ROUTE") or "").strip(),
         ),
         "webDefaults": {
-            "permissionMode": CLAUDE_WEB_PERMISSION_MODE,
+            "permissionMode": "auto",
             "chatTimeoutSeconds": CLAUDE_CHAT_TIMEOUT_SECONDS,
             "locale": current_settings.get("CLAUDE_CONSOLE_LOCALE") or EDITABLE_SETTINGS_DEFAULTS["CLAUDE_CONSOLE_LOCALE"],
         },
@@ -2993,15 +3107,13 @@ def _write_terminal_script(
         fd, script_path = tempfile.mkstemp(prefix="claude-console-", suffix=".ps1")
         os.close(fd)
         normalized_agent_mode = _normalize_agent_mode(agent_mode)
+        normalized_permission_mode = _claude_normalize_permission_mode(permission_mode)
         agent_name = _resolve_agent_name(normalized_agent_mode, prompt, mode)
         prepared_prompt = _prepare_claude_prompt(prompt, mode, normalized_agent_mode)
         command_parts = [f'& "{CLAUDE_WRAPPER_PATH}"']
         if agent_name:
             command_parts.extend(["--agent", shlex.quote(agent_name)])
-        if permission_mode == "bypassPermissions":
-            command_parts.append("--dangerously-skip-permissions")
-        if permission_mode:
-            command_parts.extend(["--permission-mode", shlex.quote(permission_mode)])
+        _claude_append_permission_flags(command_parts, normalized_permission_mode)
         for path in _claude_allowed_dirs():
             if os.path.realpath(path) != os.path.realpath(CLAUDE_WORKSPACE_ROOT):
                 command_parts.append(f"--add-dir={shlex.quote(path)}")
@@ -3034,6 +3146,7 @@ def _write_terminal_script(
 
     fd, script_path = tempfile.mkstemp(prefix="claude-console-", suffix=".command")
     normalized_agent_mode = _normalize_agent_mode(agent_mode)
+    normalized_permission_mode = _claude_normalize_permission_mode(permission_mode)
     agent_name = _resolve_agent_name(normalized_agent_mode, prompt, mode)
     prepared_prompt = _prepare_claude_prompt(prompt, mode, normalized_agent_mode)
     tmux_binary = _tmux_binary()
@@ -3044,10 +3157,7 @@ def _write_terminal_script(
         command_parts.append("-p")
     if agent_name:
         command_parts.extend(["--agent", shlex.quote(agent_name)])
-    if permission_mode == "bypassPermissions":
-        command_parts.append("--dangerously-skip-permissions")
-    if permission_mode:
-        command_parts.extend(["--permission-mode", shlex.quote(permission_mode)])
+    _claude_append_permission_flags(command_parts, normalized_permission_mode)
     command_parts.extend(
         f"--add-dir={shlex.quote(path)}"
         for path in _claude_allowed_dirs()
@@ -3611,7 +3721,7 @@ def claude_console_chat():
     busy_session = _find_session_active_run(session_id) if session_id else None
     if busy_session:
         session_id = None
-    permission_mode = str(data.get("permissionMode") or CLAUDE_WEB_PERMISSION_MODE or "default").strip()
+    permission_mode = _claude_normalize_permission_mode(data.get("permissionMode") or CLAUDE_WEB_PERMISSION_MODE or "auto")
     attachments = data.get("attachments") if isinstance(data.get("attachments"), list) else []
     original_prompt = _compose_prompt_with_attachments(prompt, attachments)
     prepared_prompt = _prepare_claude_prompt(original_prompt, mode, agent_mode)
@@ -3717,7 +3827,7 @@ def claude_console_open_session():
     busy_session = _find_session_active_run(resume_session_id) if resume_session_id else None
     if busy_session:
         resume_session_id = ""
-    permission_mode = str(data.get("permissionMode") or CLAUDE_WEB_PERMISSION_MODE or "default").strip()
+    permission_mode = _claude_normalize_permission_mode(data.get("permissionMode") or CLAUDE_WEB_PERMISSION_MODE or "auto")
     launch = _open_terminal_script(
         _write_terminal_script(mode, prompt, continue_latest, resume_session_id, agent_mode, permission_mode)
     )
@@ -3746,7 +3856,7 @@ def claude_console_quick_run():
         return jsonify({"ok": False, "msg": "invalid json"}), 400
     mode = _normalize_claude_mode(data.get("mode"))
     agent_mode = _normalize_agent_mode(data.get("agentMode"))
-    permission_mode = str(data.get("permissionMode") or CLAUDE_WEB_PERMISSION_MODE or "default").strip()
+    permission_mode = _claude_normalize_permission_mode(data.get("permissionMode") or CLAUDE_WEB_PERMISSION_MODE or "auto")
     prompt = str(data.get("prompt") or "").strip()
     if not prompt:
         return jsonify({"ok": False, "msg": "请先输入 quick run 提示词"}), 400
@@ -3754,9 +3864,7 @@ def claude_console_quick_run():
     agent_name = _resolve_agent_name(agent_mode, prompt, mode)
     started_at = datetime.now()
     command = [CLAUDE_WRAPPER_PATH]
-    if permission_mode == "bypassPermissions":
-        command.append("--dangerously-skip-permissions")
-    command.extend(["--permission-mode", permission_mode])
+    _claude_append_permission_flags(command, permission_mode)
     if agent_name:
         command.extend(["--agent", agent_name])
     for add_dir in _claude_allowed_dirs():

@@ -73,7 +73,8 @@ ANSI_ESCAPE_RE = re.compile(r"\x1b(?:[@-Z\-_]|\[[0-?]*[ -/]*[@-~]|\][^\a]*(?:\a|
 DISPLAY_MODEL_ALIASES = {
     "claude-opus-4-6": "claude-opus-4-6-thinking",
 }
-DEFAULT_PERMISSION_MODE = (os.getenv("CLAUDE_WEB_PERMISSION_MODE", "bypassPermissions") or "bypassPermissions").strip()
+AUTO_PERMISSION_MODES = {"", "auto", "default"}
+DEFAULT_PERMISSION_MODE = (os.getenv("CLAUDE_WEB_PERMISSION_MODE", "auto") or "auto").strip()
 
 
 def _resolve_real_claude_bin() -> str:
@@ -104,6 +105,110 @@ def _router_auth_token() -> str:
 def normalize_display_model(model_name: str) -> str:
     normalized = str(model_name or "").strip()
     return DISPLAY_MODEL_ALIASES.get(normalized, normalized)
+
+
+def normalize_permission_mode(permission_mode: str | None) -> str:
+    raw_value = str(permission_mode or "").strip()
+    if raw_value.lower() in AUTO_PERMISSION_MODES:
+        return "auto"
+    return raw_value or "auto"
+
+
+def append_permission_flags(command: List[str], permission_mode: str | None) -> str:
+    normalized = normalize_permission_mode(permission_mode)
+    if normalized == "bypassPermissions":
+        command.append("--dangerously-skip-permissions")
+        return normalized
+    if normalized == "auto":
+        command.append("--enable-auto-mode")
+        return normalized
+    command.extend(["--permission-mode", normalized])
+    return normalized
+
+
+def _usage_int(value: Any) -> int:
+    try:
+        return int(value or 0)
+    except Exception:
+        return 0
+
+
+def normalize_context_usage(raw_usage: dict | None) -> Dict[str, Any]:
+    usage = raw_usage if isinstance(raw_usage, dict) else {}
+    input_tokens = _usage_int(usage.get("input_tokens") or usage.get("inputTokens"))
+    output_tokens = _usage_int(usage.get("output_tokens") or usage.get("outputTokens"))
+    cache_creation_tokens = _usage_int(
+        usage.get("cache_creation_input_tokens") or usage.get("cacheCreationInputTokens")
+    )
+    cache_read_tokens = _usage_int(usage.get("cache_read_input_tokens") or usage.get("cacheReadInputTokens"))
+    max_tokens = _usage_int(
+        usage.get("context_window")
+        or usage.get("contextWindow")
+        or usage.get("max_tokens")
+        or usage.get("maxTokens")
+    )
+    used_tokens = _usage_int(usage.get("total_tokens") or usage.get("totalTokens"))
+    if used_tokens <= 0:
+        used_tokens = input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens
+    percent_used = round((used_tokens / max_tokens) * 100, 1) if max_tokens > 0 and used_tokens >= 0 else None
+    available = used_tokens > 0 or max_tokens > 0
+    return {
+        "available": available,
+        "usedTokens": used_tokens,
+        "maxTokens": max_tokens,
+        "percentUsed": percent_used,
+        "inputTokens": input_tokens,
+        "outputTokens": output_tokens,
+        "cacheCreationInputTokens": cache_creation_tokens,
+        "cacheReadInputTokens": cache_read_tokens,
+        "hasWindow": max_tokens > 0,
+    }
+
+
+def _compact_json(value: Any) -> str:
+    if isinstance(value, str):
+        return value
+    if value in (None, ""):
+        return ""
+    try:
+        return json.dumps(value, ensure_ascii=False, sort_keys=True)
+    except Exception:
+        return str(value)
+
+
+def normalize_run_step(event: dict[str, object] | None) -> Dict[str, Any]:
+    payload = event if isinstance(event, dict) else {}
+    tool_payload = payload.get("tool") if isinstance(payload.get("tool"), dict) else {}
+    tool_input = tool_payload.get("input") if isinstance(tool_payload.get("input"), dict) else {}
+    kind = str(payload.get("type") or payload.get("kind") or "").strip()
+    label = (
+        str(payload.get("label") or "").strip()
+        or str(payload.get("toolName") or "").strip()
+        or str(payload.get("name") or "").strip()
+        or str(tool_payload.get("name") or "").strip()
+        or kind
+        or "step"
+    )
+    summary = str(payload.get("summary") or "").strip()
+    if not summary and tool_input:
+        summary = _compact_json(tool_input)
+    elif not summary and payload.get("content") not in (None, ""):
+        summary = _compact_json(payload.get("content"))
+    command = (
+        str(payload.get("command") or "").strip()
+        or str(tool_input.get("command") or "").strip()
+        or str(tool_input.get("cmd") or "").strip()
+    )
+    is_error = bool(payload.get("isError")) or str(payload.get("status") or "").strip().lower() == "error"
+    raw_text = str(payload.get("rawText") or "").strip()
+    return {
+        "kind": kind or "step",
+        "label": label,
+        "summary": summary,
+        "command": command,
+        "status": "error" if is_error else "ok",
+        "rawText": raw_text,
+    }
 
 
 def project_slug_from_path(workspace_root: str) -> str:
@@ -622,6 +727,7 @@ def parse_session_file(path: str) -> Dict[str, Any]:
         "toolMessageCount": 0,
         "model": "",
         "shellOnly": False,
+        "contextUsage": normalize_context_usage(None),
     }
     messages: List[Dict[str, Any]] = []
     assistant_by_key: Dict[str, Dict[str, Any]] = {}
@@ -707,6 +813,7 @@ def parse_session_file(path: str) -> Dict[str, Any]:
                     "thinkingText": "",
                     "blocks": [],
                     "model": normalize_display_model(str(message.get("model") or "")),
+                    "usage": normalize_context_usage(None),
                 }
                 assistant_by_key[assistant_id] = entry
                 messages.append(entry)
@@ -718,6 +825,10 @@ def parse_session_file(path: str) -> Dict[str, Any]:
             if message.get("model"):
                 entry["model"] = normalize_display_model(str(message.get("model")))
                 summary["model"] = entry["model"]
+            entry_usage = normalize_context_usage(message.get("usage") if isinstance(message.get("usage"), dict) else None)
+            if entry_usage.get("available"):
+                entry["usage"] = entry_usage
+                summary["contextUsage"] = entry_usage
             if entry["displayText"]:
                 summary["preview"] = clip_text(entry["displayText"], 84)
 
@@ -840,6 +951,27 @@ def get_session_detail(project_dir: str, meta_path: str, session_id: str) -> Opt
     summary["fixed"] = bool(meta.get("fixed"))
     summary["specialRole"] = str(meta.get("specialRole") or "")
     return {"summary": summary, "messages": parsed["messages"]}
+
+
+def latest_session_context_usage(project_dir: str, limit: int = 12) -> Dict[str, Any]:
+    sessions_dir = Path(project_dir)
+    if not sessions_dir.exists():
+        return normalize_context_usage(None)
+    candidates = sorted(
+        sessions_dir.glob("*.jsonl"),
+        key=lambda path: path.stat().st_mtime if path.exists() else 0.0,
+        reverse=True,
+    )
+    for path in candidates[: max(1, int(limit or 12))]:
+        try:
+            parsed = parse_session_file(str(path))
+        except Exception:
+            continue
+        summary = parsed.get("summary") if isinstance(parsed, dict) else {}
+        usage = summary.get("contextUsage") if isinstance(summary, dict) else None
+        if isinstance(usage, dict) and usage.get("available"):
+            return dict(usage)
+    return normalize_context_usage(None)
 
 
 def delete_session(
@@ -1197,9 +1329,7 @@ def run_claude_capture(
         return {"ok": False, "returncode": None, "stdout": "", "stderr": "missing prompt"}
 
     cmd: List[str] = [claude_bin, "-p"]
-    if permission_mode == "bypassPermissions":
-        cmd.append("--dangerously-skip-permissions")
-    cmd.extend(["--permission-mode", permission_mode])
+    normalized_permission_mode = append_permission_flags(cmd, permission_mode)
     if agent_name:
         cmd.extend(["--agent", agent_name])
     for add_dir in add_dirs or []:
@@ -1253,6 +1383,7 @@ def run_claude_capture(
             "timedOut": timed_out,
             "transport": transport,
             "transportError": transport_error,
+            "permissionMode": normalized_permission_mode,
         }
     finally:
         if process.poll() is None:
@@ -1285,9 +1416,7 @@ def stream_claude_session(
         "stream-json",
         "--include-partial-messages",
     ]
-    if permission_mode == "bypassPermissions":
-        cmd.append("--dangerously-skip-permissions")
-    cmd.extend(["--permission-mode", permission_mode])
+    normalized_permission_mode = append_permission_flags(cmd, permission_mode)
     if agent_name:
         cmd.extend(["--agent", agent_name])
     for add_dir in add_dirs or []:
@@ -1397,7 +1526,7 @@ def stream_claude_session(
                         "runId": run_id,
                         "sessionId": actual_session_id,
                         "model": str(payload.get("model") or ""),
-                        "permissionMode": str(payload.get("permissionMode") or permission_mode),
+                        "permissionMode": str(payload.get("permissionMode") or normalized_permission_mode),
                     }
                 continue
 
@@ -1426,6 +1555,15 @@ def stream_claude_session(
                     "summary": summary,
                     "content": payload.get("tool_use_result"),
                     "rawText": normalize_user_content(payload.get("message") or {}),
+                    "runStep": normalize_run_step(
+                        {
+                            "type": "tool_result",
+                            "label": "tool_result",
+                            "summary": summary,
+                            "content": payload.get("tool_use_result"),
+                            "rawText": normalize_user_content(payload.get("message") or {}),
+                        }
+                    ),
                 }
                 continue
 
@@ -1448,6 +1586,13 @@ def stream_claude_session(
                             "runId": run_id,
                             "sessionId": actual_session_id,
                             "tool": tool,
+                            "runStep": normalize_run_step(
+                                {
+                                    "type": "tool_snapshot",
+                                    "tool": tool,
+                                    "label": str(tool.get("name") or "tool"),
+                                }
+                            ),
                         }
                 continue
 
