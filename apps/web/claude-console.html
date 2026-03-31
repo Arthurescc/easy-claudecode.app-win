@@ -3178,7 +3178,7 @@
             const match = beforeCaret.match(/(?:^|\s)\/([^\s/]*)$/);
             if (!match) return null;
             const token = String(match[0] || '');
-            const prefixLength = token.startsWith(' ') ? 1 : 0;
+            const prefixLength = /^\s/.test(token) ? 1 : 0;
             return {
                 query: String(match[1] || ''),
                 replaceStart: beforeCaret.length - token.length + prefixLength,
@@ -3210,6 +3210,19 @@
                 input.selectionStart = input.selectionEnd = start;
             }
             closeSlashChooser();
+        }
+
+        function upsertStreamingToolSnapshot(draft, event, currentTool) {
+            const toolName = event?.tool?.name || t('label_tool');
+            const toolInput = event?.tool?.input || {};
+            if (currentTool && currentTool.type === 'tool_use') {
+                currentTool.name = toolName;
+                currentTool.input = toolInput;
+                return currentTool;
+            }
+            const nextTool = { type: 'tool_use', name: toolName, input: toolInput };
+            draft.blocks.push(nextTool);
+            return nextTool;
         }
 
         function messageScrollContainer() {
@@ -5852,7 +5865,7 @@
                     return;
                 }
                 if (event.type === 'tool_snapshot') {
-                    draft.blocks.push({ type: 'tool_use', name: event.tool?.name || t('label_tool'), input: event.tool?.input || {} });
+                    currentTool = upsertStreamingToolSnapshot(draft, event, currentTool);
                     scheduleMessagesRender({ stickToBottom: true });
                     return;
                 }

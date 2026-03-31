@@ -163,13 +163,13 @@ test('slash chip insertion preserves multiline whitespace outside the slash toke
     selectionEnd: 0,
   };
   const context = evaluateFunctions(
-    ['selectSlashChoice'],
+    ['detectSlashIntent', 'selectSlashChoice'],
     {
       appState: {
         slashChooser: {
           sectionId: 'plan',
-          replaceStart: input.value.length - 4,
-          replaceEnd: input.value.length,
+          replaceStart: 0,
+          replaceEnd: 0,
         },
       },
       document: {
@@ -181,17 +181,43 @@ test('slash chip insertion preserves multiline whitespace outside the slash toke
       slashChoicesForSection() {
         return [{ id: 'plan-enable', label: 'Plan Mode' }];
       },
-      upsertComposerChip(sectionId, choice) {
-        this.lastChip = { sectionId, choice };
-      },
+      upsertComposerChip() {},
       closeSlashChooser() {},
       Number,
       String,
     },
   );
 
+  const intent = context.detectSlashIntent(input.value, input.value.length);
+  assert.equal(intent.replaceStart, input.value.lastIndexOf('/'));
+  context.appState.slashChooser = { ...context.appState.slashChooser, ...intent };
   context.selectSlashChoice('plan', 'plan-enable');
   assert.equal(input.value, 'first line\n\n    indented_block()\n');
+});
+
+test('tool snapshots merge into the active streaming tool block instead of duplicating it', () => {
+  const input = {
+    blocks: [{ type: 'tool_use', name: 'Shell', input: 'echo one' }],
+  };
+  const currentTool = input.blocks[0];
+  const context = evaluateFunctions(
+    ['upsertStreamingToolSnapshot'],
+    {
+      t() {
+        return 'Tool';
+      },
+    },
+  );
+
+  const returnedTool = context.upsertStreamingToolSnapshot(
+    input,
+    { tool: { name: 'Shell', input: { command: 'echo two' } } },
+    currentTool,
+  );
+
+  assert.equal(input.blocks.length, 1);
+  assert.equal(returnedTool, currentTool);
+  assert.deepEqual(input.blocks[0].input, { command: 'echo two' });
 });
 
 test('scroll helpers detach and reattach auto-stick around user scroll position', () => {
