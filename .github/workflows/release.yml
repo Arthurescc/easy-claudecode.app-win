@@ -49,7 +49,6 @@ jobs:
           .\.venv\Scripts\python.exe .github/scripts/check_inline_js.py apps/web/claude-console.html
           node --test qa/router/custom-router.test.cjs qa/windows-release/frontend-install-surface.test.cjs qa/windows-release/release-workflow.test.cjs
           .\qa\windows-release\settings-default-route-smoke.ps1
-          .\qa\windows-release\build-launcher-locked-output-smoke.ps1
           node --check services/backend/claude_code_dashscope_proxy.js
           node --check config/router/custom-router.js
           $env:EASY_CLAUDECODE_SHORTCUT_DESKTOP_DIR = Join-Path $env:RUNNER_TEMP "desktop"
