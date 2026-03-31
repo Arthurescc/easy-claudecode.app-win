@@ -3138,14 +3138,19 @@ def _write_terminal_script(
     session_id: str = "",
     agent_mode: str = "auto",
     permission_mode: str = CLAUDE_WEB_PERMISSION_MODE,
+    *,
+    prepared_prompt_override: str | None = None,
+    agent_prompt: str | None = None,
 ) -> str:
     if IS_WINDOWS:
         fd, script_path = tempfile.mkstemp(prefix="claude-console-", suffix=".ps1")
         os.close(fd)
         normalized_agent_mode = _normalize_agent_mode(agent_mode)
         normalized_permission_mode = _claude_normalize_permission_mode(permission_mode)
-        agent_name = _resolve_agent_name(normalized_agent_mode, prompt, mode)
-        prepared_prompt = _prepare_claude_prompt(prompt, mode, normalized_agent_mode)
+        resolved_agent_prompt = str(agent_prompt if agent_prompt is not None else prompt or "")
+        render_prompt = str(prepared_prompt_override if prepared_prompt_override is not None else prompt or "")
+        agent_name = _resolve_agent_name(normalized_agent_mode, resolved_agent_prompt, mode)
+        prepared_prompt = _prepare_claude_prompt(render_prompt, mode, normalized_agent_mode)
         command_parts = [f'& "{CLAUDE_WRAPPER_PATH}"']
         if agent_name:
             command_parts.extend(["--agent", shlex.quote(agent_name)])
@@ -3183,8 +3188,10 @@ def _write_terminal_script(
     fd, script_path = tempfile.mkstemp(prefix="claude-console-", suffix=".command")
     normalized_agent_mode = _normalize_agent_mode(agent_mode)
     normalized_permission_mode = _claude_normalize_permission_mode(permission_mode)
-    agent_name = _resolve_agent_name(normalized_agent_mode, prompt, mode)
-    prepared_prompt = _prepare_claude_prompt(prompt, mode, normalized_agent_mode)
+    resolved_agent_prompt = str(agent_prompt if agent_prompt is not None else prompt or "")
+    render_prompt = str(prepared_prompt_override if prepared_prompt_override is not None else prompt or "")
+    agent_name = _resolve_agent_name(normalized_agent_mode, resolved_agent_prompt, mode)
+    prepared_prompt = _prepare_claude_prompt(render_prompt, mode, normalized_agent_mode)
     tmux_binary = _tmux_binary()
     terminal_print_mode = bool(prepared_prompt and not session_id and not continue_latest)
     inject_prompt_via_tmux = bool(tmux_binary and prepared_prompt and not terminal_print_mode)
@@ -3206,7 +3213,7 @@ def _write_terminal_script(
     if prepared_prompt and not inject_prompt_via_tmux:
         command_parts.append('"$PROMPT"')
     claude_command = " ".join(part for part in command_parts if part).strip()
-    tmux_session_name = _tmux_session_name(session_id=session_id, prompt=prompt, continue_latest=continue_latest)
+    tmux_session_name = _tmux_session_name(session_id=session_id, prompt=resolved_agent_prompt, continue_latest=continue_latest)
     with os.fdopen(fd, "w", encoding="utf-8") as f:
         f.write("#!/bin/zsh\n")
         f.write("set -euo pipefail\n")
@@ -3867,14 +3874,17 @@ def claude_console_open_session():
         resume_session_id = ""
     permission_mode = _claude_normalize_permission_mode(data.get("permissionMode") or CLAUDE_WEB_PERMISSION_MODE or "auto")
     shell_selections = data.get("shellSelections") if isinstance(data.get("shellSelections"), list) else []
+    prepared_terminal_prompt = _apply_shell_selections_to_prompt(prompt, shell_selections)
     launch = _open_terminal_script(
         _write_terminal_script(
             mode,
-            _apply_shell_selections_to_prompt(prompt, shell_selections),
+            prompt,
             continue_latest,
             resume_session_id,
             agent_mode,
             permission_mode,
+            prepared_prompt_override=prepared_terminal_prompt,
+            agent_prompt=prompt,
         )
     )
     if not launch.get("ok"):

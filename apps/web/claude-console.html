@@ -3082,6 +3082,11 @@
             updateTopBadges();
         }
 
+        function maybeAdoptBootstrapPermissionMode(nextMode) {
+            if (appState.permissionModeDirty) return;
+            setPermissionMode(nextMode, { userInitiated: false });
+        }
+
         function cyclePermissionSelection(step = 1) {
             const options = permissionModeOptions();
             if (!options.length) return;
@@ -3200,7 +3205,7 @@
             if (input) {
                 const start = Number(appState.slashChooser.replaceStart || 0);
                 const end = Number(appState.slashChooser.replaceEnd || 0);
-                input.value = `${input.value.slice(0, start)}${input.value.slice(end)}`.replace(/\s{2,}/g, ' ');
+                input.value = `${input.value.slice(0, start)}${input.value.slice(end)}`;
                 input.focus();
                 input.selectionStart = input.selectionEnd = start;
             }
@@ -3368,9 +3373,7 @@
                 ...(payload.installers || {}),
             };
             const incomingPermissionMode = String(payload.webDefaults?.permissionMode || appState.chatShell.permissionDefault || 'auto').trim() || 'auto';
-            if (!appState.permissionModeDirty) {
-                setPermissionMode(incomingPermissionMode, { userInitiated: false });
-            }
+            maybeAdoptBootstrapPermissionMode(incomingPermissionMode);
             if (payload.webDefaults?.locale) {
                 persistLocale(payload.webDefaults.locale);
             }
@@ -5298,7 +5301,7 @@
 
         function scheduleMessagesRender({ stickToBottom = false, force = false } = {}) {
             appState.pendingMessageScroll = appState.pendingMessageScroll || stickToBottom;
-            appState.forceMessageScroll = appState.forceMessageScroll || (Boolean(force && stickToBottom) && !appState.messageScrollDetached);
+            appState.forceMessageScroll = appState.forceMessageScroll || force;
             if (appState.messageRenderQueued) return;
             appState.messageRenderQueued = true;
             window.requestAnimationFrame(() => {
@@ -5803,7 +5806,7 @@
                         appState.currentSession.session.model = event.model || appState.currentSession.session.model || '';
                     }
                     updateTopBadges();
-                    scheduleMessagesRender({ stickToBottom: true, force: true });
+                    scheduleMessagesRender({ stickToBottom: true });
                     return;
                 }
                 if (event.type === 'system_notice') {
@@ -5811,7 +5814,7 @@
                         type: 'text',
                         text: t('system_notice_session_switched', { message: event.message || t('session_switched_default') }),
                     });
-                    scheduleMessagesRender({ stickToBottom: true, force: true });
+                    scheduleMessagesRender({ stickToBottom: true });
                     return;
                 }
                 if (event.type === 'delta') {
@@ -5830,13 +5833,13 @@
                         }
                         block.text += event.text || '';
                     }
-                    scheduleMessagesRender({ stickToBottom: true, force: true });
+                    scheduleMessagesRender({ stickToBottom: true });
                     return;
                 }
                 if (event.type === 'tool_start') {
                     currentTool = { type: 'tool_use', name: event.name || t('label_tool'), input: '' };
                     draft.blocks.push(currentTool);
-                    scheduleMessagesRender({ stickToBottom: true, force: true });
+                    scheduleMessagesRender({ stickToBottom: true });
                     return;
                 }
                 if (event.type === 'tool_delta') {
@@ -5845,18 +5848,18 @@
                         draft.blocks.push(currentTool);
                     }
                     currentTool.input = `${currentTool.input || ''}${event.text || ''}`;
-                    scheduleMessagesRender({ stickToBottom: true, force: true });
+                    scheduleMessagesRender({ stickToBottom: true });
                     return;
                 }
                 if (event.type === 'tool_snapshot') {
                     draft.blocks.push({ type: 'tool_use', name: event.tool?.name || t('label_tool'), input: event.tool?.input || {} });
-                    scheduleMessagesRender({ stickToBottom: true, force: true });
+                    scheduleMessagesRender({ stickToBottom: true });
                     return;
                 }
                 if (event.type === 'tool_result') {
                     appendToolResultToDraft(draft, event);
                     currentTool = null;
-                    scheduleMessagesRender({ stickToBottom: true, force: true });
+                    scheduleMessagesRender({ stickToBottom: true });
                     return;
                 }
                 if (event.type === 'done') {
@@ -5893,7 +5896,7 @@
                     appState.isStreaming = false;
                     appState.activeRunId = null;
                     draft.blocks.push({ type: 'text', text: t('stopped') });
-                    scheduleMessagesRender({ stickToBottom: true, force: true });
+                    scheduleMessagesRender({ stickToBottom: true });
                     updateStreamingUi();
                     return;
                 }
@@ -5901,7 +5904,7 @@
                     appState.isStreaming = false;
                     appState.activeRunId = null;
                     draft.blocks.push({ type: 'text', text: event.message || t('unknown_error') });
-                    scheduleMessagesRender({ stickToBottom: true, force: true });
+                    scheduleMessagesRender({ stickToBottom: true });
                     updateStreamingUi();
                 }
             };

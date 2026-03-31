@@ -126,6 +126,74 @@ test('top strip selectors synchronize actual model and permission state', () => 
   assert.equal(permissionSelect.value, 'default');
 });
 
+test('bootstrap default does not override a user-selected permission mode', () => {
+  const permissionSelect = { value: 'auto' };
+  const context = evaluateFunctions(
+    ['setPermissionMode', 'maybeAdoptBootstrapPermissionMode'],
+    {
+      appState: {
+        permissionMode: 'auto',
+        permissionModeDirty: false,
+        chatShell: { permissionDefault: 'auto' },
+      },
+      document: {
+        getElementById(id) {
+          if (id === 'permission-mode') return permissionSelect;
+          return null;
+        },
+      },
+      updateTopBadges() {},
+      String,
+    },
+  );
+
+  context.maybeAdoptBootstrapPermissionMode('default');
+  assert.equal(context.appState.permissionMode, 'default');
+  context.setPermissionMode('plan');
+  context.maybeAdoptBootstrapPermissionMode('auto');
+  assert.equal(context.appState.permissionMode, 'plan');
+  assert.equal(permissionSelect.value, 'plan');
+});
+
+test('slash chip insertion preserves multiline whitespace outside the slash token', () => {
+  const input = {
+    value: 'first line\n\n    indented_block()\n/pla',
+    focus() {},
+    selectionStart: 0,
+    selectionEnd: 0,
+  };
+  const context = evaluateFunctions(
+    ['selectSlashChoice'],
+    {
+      appState: {
+        slashChooser: {
+          sectionId: 'plan',
+          replaceStart: input.value.length - 4,
+          replaceEnd: input.value.length,
+        },
+      },
+      document: {
+        getElementById(id) {
+          if (id === 'composer-input') return input;
+          return null;
+        },
+      },
+      slashChoicesForSection() {
+        return [{ id: 'plan-enable', label: 'Plan Mode' }];
+      },
+      upsertComposerChip(sectionId, choice) {
+        this.lastChip = { sectionId, choice };
+      },
+      closeSlashChooser() {},
+      Number,
+      String,
+    },
+  );
+
+  context.selectSlashChoice('plan', 'plan-enable');
+  assert.equal(input.value, 'first line\n\n    indented_block()\n');
+});
+
 test('scroll helpers detach and reattach auto-stick around user scroll position', () => {
   const workspaceBody = { scrollHeight: 1000, scrollTop: 400, clientHeight: 300 };
   const buttonState = { visible: false };

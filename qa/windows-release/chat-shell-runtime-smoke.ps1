@@ -67,6 +67,7 @@ assert shell_prompt.endswith("User request:\nShip the fix"), shell_prompt
 client = app.app.test_client()
 original_run_capture = app._claude_run_capture
 original_open_terminal_script = app._open_terminal_script
+original_resolve_agent_name = app._resolve_agent_name
 try:
     app._claude_run_capture = lambda *args, **kwargs: {
         "ok": True,
@@ -95,13 +96,15 @@ try:
     captured = {}
     app._open_terminal_script = lambda script_path: {"ok": True, "scriptPath": script_path}
     original_write_terminal_script = app._write_terminal_script
-    app._write_terminal_script = lambda mode, prompt, continue_latest, session_id="", agent_mode="auto", permission_mode=app.CLAUDE_WEB_PERMISSION_MODE: captured.update({
+    app._write_terminal_script = lambda mode, prompt, continue_latest, session_id="", agent_mode="auto", permission_mode=app.CLAUDE_WEB_PERMISSION_MODE, **kwargs: captured.update({
         "mode": mode,
         "prompt": prompt,
         "continueLatest": continue_latest,
         "sessionId": session_id,
         "agentMode": agent_mode,
         "permissionMode": permission_mode,
+        "preparedPromptOverride": kwargs.get("prepared_prompt_override"),
+        "agentPrompt": kwargs.get("agent_prompt"),
     }) or "captured-script"
     response = client.post(
         "/claude-console/open-session",
@@ -115,11 +118,33 @@ try:
         },
     )
     assert response.status_code == 200, response.get_data(as_text=True)
-    assert "Response personality: Collaborative." in str(captured.get("prompt") or "")
-    assert "Plan behavior: Plan Mode." in str(captured.get("prompt") or "")
+    assert "Response personality: Collaborative." in str(captured.get("preparedPromptOverride") or "")
+    assert "Plan behavior: Plan Mode." in str(captured.get("preparedPromptOverride") or "")
+    assert captured.get("agentPrompt") == "Continue in terminal", captured
+
+    observed = {}
+    app._write_terminal_script = original_write_terminal_script
+    app._resolve_agent_name = lambda agent_mode, prompt, mode="auto": observed.setdefault("prompt", prompt) or ""
+    script_path = app._write_terminal_script(
+        "auto",
+        "Raw prompt",
+        False,
+        "",
+        "auto",
+        "auto",
+        prepared_prompt_override=app._apply_shell_selections_to_prompt(
+            "Raw prompt",
+            [{"sectionId": "mcp", "label": "Context7"}],
+        ),
+        agent_prompt="Raw prompt",
+    )
+    assert observed.get("prompt") == "Raw prompt", observed
+    if os.path.exists(script_path):
+        os.remove(script_path)
 finally:
     app._claude_run_capture = original_run_capture
     app._open_terminal_script = original_open_terminal_script
+    app._resolve_agent_name = original_resolve_agent_name
     if 'original_write_terminal_script' in locals():
         app._write_terminal_script = original_write_terminal_script
 
