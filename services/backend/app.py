@@ -555,6 +555,31 @@ def _load_editable_settings() -> dict[str, str]:
     return payload
 
 
+def _parse_claude_auth_status() -> dict[str, object]:
+    claude_cli_available, claude_real_bin = _resolve_real_claude_bin()
+    if not claude_cli_available:
+        return {
+            "available": False,
+            "loggedIn": False,
+            "authMethod": "none",
+            "raw": f"Claude CLI not found: {claude_real_bin or 'claude'}",
+        }
+    result = _run_capture([CLAUDE_WRAPPER_PATH, "auth", "status"], cwd=CLAUDE_WORKSPACE_ROOT, timeout=10)
+    raw_text = str(result.get("stdout") or result.get("stderr") or "").strip()
+    parsed: dict[str, object] = {}
+    if raw_text:
+        try:
+            parsed = json.loads(raw_text)
+        except Exception:
+            parsed = {}
+    return {
+        "available": True,
+        "loggedIn": bool(parsed.get("loggedIn")),
+        "authMethod": str(parsed.get("authMethod") or "none"),
+        "raw": raw_text,
+    }
+
+
 def _save_editable_settings(updates: dict[str, str]) -> None:
     env_path = Path(EASY_CLAUDECODE_ENV_FILE)
     env_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1063,6 +1088,12 @@ def _clear_model_probe_cache() -> None:
     with MODEL_PROBE_CACHE_LOCK:
         MODEL_PROBE_CACHE["items"] = {}
         MODEL_PROBE_CACHE["createdAt"] = 0.0
+
+
+def _clear_status_cache() -> None:
+    with STATUS_CACHE_LOCK:
+        STATUS_CACHE["payload"] = None
+        STATUS_CACHE["createdAt"] = 0.0
 
 
 def _extract_provider_error_code(body_text: str) -> str:
@@ -2608,6 +2639,53 @@ def _clear_library_cache() -> None:
         LIBRARY_CACHE["createdAt"] = 0.0
 
 
+def _has_provider_credentials(values: dict[str, str]) -> bool:
+    return any(
+        str(values.get(key) or "").strip()
+        for key in ("CODING_COMPATIBLE_API_KEY", "ANTHROPIC_THINKING_API_KEY")
+    )
+
+
+def _setup_status_payload(
+    *,
+    values: dict[str, str],
+    auth_status: dict[str, object],
+    library: dict[str, object],
+    route_options: list[dict[str, object]] | None = None,
+) -> dict[str, object]:
+    options = route_options if isinstance(route_options, list) else _route_options()
+    route_ids = [str(item.get("id") or "").strip() for item in options if isinstance(item, dict)]
+    has_provider_credentials = _has_provider_credentials(values)
+    has_route_options = any(route_ids)
+    library_counts = library.get("counts") if isinstance(library, dict) else {}
+    has_existing_library = any(
+        int((library_counts or {}).get(key) or 0) > 0
+        for key in ("skills", "agents", "mcps")
+    )
+    default_route = str(values.get("EASY_CLAUDECODE_DEFAULT_ROUTE") or "").strip()
+    custom_provider_ready = has_provider_credentials and has_route_options
+    official_claude_ready = bool(auth_status.get("available")) and bool(auth_status.get("loggedIn"))
+    is_ready = custom_provider_ready or official_claude_ready
+    if custom_provider_ready:
+        recommended_path = "custom-provider"
+    elif official_claude_ready:
+        recommended_path = "official-claude"
+    else:
+        recommended_path = "settings"
+    return {
+        "isReady": is_ready,
+        "shouldPromptSettings": not is_ready,
+        "recommendedPath": recommended_path,
+        "customProviderReady": custom_provider_ready,
+        "officialClaudeReady": official_claude_ready,
+        "hasExistingLibrary": has_existing_library,
+        "hasProviderCredentials": has_provider_credentials,
+        "hasRouteOptions": has_route_options,
+        "defaultRoute": default_route,
+        "claudeAuth": auth_status,
+    }
+
+
 def _build_library(force_refresh: bool = False) -> dict:
     signature = _library_cache_signature()
     now = time.time()
@@ -2693,6 +2771,9 @@ def _build_status(force_refresh: bool = False) -> dict:
     router_config = _read_json_file(CLAUDE_ROUTER_CONFIG_FILE, {})
     providers = []
     current_settings = _load_editable_settings()
+    library_payload = _build_library()
+    auth_status = _parse_claude_auth_status()
+    route_options = _route_options()
     for provider in _router_provider_entries(router_config):
         provider_name = str(provider.get("name") or "").strip()
         provider_id = _provider_registry_id(provider_name)
@@ -2720,6 +2801,8 @@ def _build_status(force_refresh: bool = False) -> dict:
             "realBinaryAvailable": claude_cli_available,
             "version": claude_version.get("stdout") or claude_version.get("stderr") or "",
             "versionOk": bool(claude_version.get("ok")),
+            "loggedIn": bool(auth_status.get("loggedIn")),
+            "authMethod": str(auth_status.get("authMethod") or "none"),
         },
         "runtime": {
             "sourceRoot": SOURCE_ROOT,
@@ -2764,10 +2847,16 @@ def _build_status(force_refresh: bool = False) -> dict:
             "continueLatest": "claude -c",
             "quickRun": "claude -p",
         },
+        "setupStatus": _setup_status_payload(
+            values=current_settings,
+            auth_status=auth_status,
+            library=library_payload,
+            route_options=route_options,
+        ),
         "webDefaults": {
             "permissionMode": CLAUDE_WEB_PERMISSION_MODE,
             "chatTimeoutSeconds": CLAUDE_CHAT_TIMEOUT_SECONDS,
-            "locale": _load_editable_settings().get("CLAUDE_CONSOLE_LOCALE") or EDITABLE_SETTINGS_DEFAULTS["CLAUDE_CONSOLE_LOCALE"],
+            "locale": current_settings.get("CLAUDE_CONSOLE_LOCALE") or EDITABLE_SETTINGS_DEFAULTS["CLAUDE_CONSOLE_LOCALE"],
         },
         "tmux": _tmux_state(),
         "activeRuns": _combined_active_runs(),
@@ -3705,6 +3794,7 @@ def claude_console_quick_run():
 
 @app.route("/claude-console/settings", methods=["GET"])
 def claude_console_settings():
+    status_payload = _build_status(force_refresh=True)
     return jsonify(
         {
             "ok": True,
@@ -3713,6 +3803,7 @@ def claude_console_settings():
             "providers": _provider_settings_payload(),
             "routeOptions": _route_options(),
             "modelCatalog": _model_catalog(),
+            "setupStatus": status_payload.get("setupStatus", {}),
             "installers": {
                 "everythingClaudeCode": _everything_claude_code_status(),
             },
@@ -3735,7 +3826,9 @@ def claude_console_update_settings():
     }
     _save_editable_settings(updates)
     _clear_model_probe_cache()
+    _clear_status_cache()
     sync_result = _sync_router_runtime()
+    status_payload = _build_status(force_refresh=True)
     return jsonify(
         {
             "ok": True,
@@ -3745,6 +3838,7 @@ def claude_console_update_settings():
             "providers": _provider_settings_payload(),
             "routeOptions": _route_options(),
             "modelCatalog": _model_catalog(),
+            "setupStatus": status_payload.get("setupStatus", {}),
             "installers": {
                 "everythingClaudeCode": _everything_claude_code_status(),
             },
