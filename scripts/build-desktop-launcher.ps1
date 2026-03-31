@@ -50,7 +50,9 @@ if ($LASTEXITCODE -ne 0 -or -not (Test-Path $TempLauncherPath)) {
 
 $ResolvedLauncherPath = $TempLauncherPath
 try {
-    Remove-Item $LauncherPath -Force -ErrorAction Stop
+    if (Test-Path $LauncherPath) {
+        Remove-Item $LauncherPath -Force -ErrorAction Stop
+    }
     Move-Item $TempLauncherPath $LauncherPath -Force -ErrorAction Stop
     $ResolvedLauncherPath = $LauncherPath
 } catch {
