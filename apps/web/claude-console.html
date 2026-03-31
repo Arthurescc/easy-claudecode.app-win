@@ -1477,6 +1477,7 @@
             </div>
             <div class="overlay-body">
                 <div class="overlay-note" id="settings-dialog-message">这里可以切换常用 API key 和上游地址。保存后重启 Claude Code.app 即可完整生效。</div>
+                <div class="overlay-note tight" id="settings-connection-summary"></div>
                 <div class="settings-grid">
                     <label class="overlay-field">
                         <span id="settings-locale-label">界面语言</span>
@@ -1525,6 +1526,7 @@
     <script>
         const EMPTY_LIBRARY = { automations: [], skills: [], agents: [], mcps: [], counts: { automations: 0, skills: 0, agents: 0, mcps: 0 } };
         const BOOTSTRAP_CACHE_KEY = 'claude-console-bootstrap-cache-v3';
+        const STARTUP_SETUP_DISMISSED_KEY = 'claude-console-startup-setup-dismissed-v1';
         const FOLDER_COLLAPSE_KEY = 'claude-console-folder-collapse-v1';
         const LIBRARY_COLLAPSE_KEY = 'claude-console-library-collapse-v1';
         const LIBRARY_SECTIONS = ['agents', 'skills', 'mcps'];
@@ -1595,6 +1597,11 @@
                 save: '保存',
                 settings_title: '模型与 API 设置',
                 settings_message: '这里可以切换默认模型路由、常用 API key、上游地址和全局界面语言。保存后重启 Claude Code.app，模型与上游配置会完整生效。',
+                startup_setup_prompt: '当前机器还没有检测到可直接使用的接入方式，请先完成一次设置。',
+                setup_summary_custom: '已检测到当前机器已有可用的自定义 provider / API 配置，可直接使用。',
+                setup_summary_custom_detail: 'Official Claude login is not required for this machine because a custom provider route is already available.',
+                setup_summary_official: '已检测到当前机器已有官方 Claude 登录，可直接使用。',
+                setup_summary_unconfigured: '当前机器尚未检测到可直接使用的接入方式，请先选择自定义 API 或官方 Claude 登录。',
                 settings_locale: '界面语言',
                 settings_default_route: '默认模型路由',
                 settings_default_route_help: '留空表示不预设默认模型，用户可以继续用 cc switch 或 Claude Code 终端自行切换。',
@@ -1785,6 +1792,11 @@
                 save: 'Save',
                 settings_title: 'Models & API settings',
                 settings_message: 'Switch the default model route, common API keys, upstreams, and global UI language here. Restart Claude Code.app after saving to fully apply model and upstream changes.',
+                startup_setup_prompt: 'No ready-to-use connection path was detected on this machine yet. Please complete setup once.',
+                setup_summary_custom: 'Detected a working custom provider / API configuration on this machine.',
+                setup_summary_custom_detail: 'Official Claude login is not required for this machine because a custom provider route is already available.',
+                setup_summary_official: 'Detected an available official Claude login on this machine.',
+                setup_summary_unconfigured: 'No ready-to-use connection path was detected yet. Choose either a custom API connection or the official Claude login path.',
                 settings_locale: 'Interface language',
                 settings_default_route: 'Default model route',
                 settings_default_route_help: 'Leave this empty to avoid forcing a default model. Users can keep using cc switch or the Claude Code terminal to choose their own route.',
@@ -2030,6 +2042,8 @@
             bootstrapLoading: true,
             bootstrapLoaded: false,
             bootstrapCacheUsed: false,
+            setupStatus: {},
+            startupSetupAutoOpened: false,
             library: { ...EMPTY_LIBRARY },
             folderRegistry: [],
             attachments: [],
@@ -2280,6 +2294,7 @@
             document.getElementById('settings-dialog-message').textContent = t('settings_message');
             const defaultRouteHelp = document.getElementById('settings-default-route-help');
             if (defaultRouteHelp) defaultRouteHelp.textContent = t('settings_default_route_help');
+            renderSettingsConnectionSummary();
             const welcomeTitle = document.getElementById('welcome-title');
             if (welcomeTitle) welcomeTitle.textContent = t('welcome_title');
             const welcomeNote = document.getElementById('welcome-note');
@@ -2318,6 +2333,45 @@
             renderSidebar({ force: true });
             renderMessages();
             renderAttachments();
+        }
+
+        function setupStatus() {
+            return appState.setupStatus || {};
+        }
+
+        function isStartupSetupDismissed() {
+            return window.localStorage.getItem(STARTUP_SETUP_DISMISSED_KEY) === '1';
+        }
+
+        function markStartupSetupDismissed() {
+            try {
+                window.localStorage.setItem(STARTUP_SETUP_DISMISSED_KEY, '1');
+            } catch (error) {
+                console.warn('startup setup dismissal persist failed', error);
+            }
+        }
+
+        function shouldAutoOpenStartupSetup() {
+            const status = setupStatus();
+            if (!status || typeof status !== 'object') return false;
+            if (appState.startupSetupAutoOpened) return false;
+            if (isStartupSetupDismissed()) return false;
+            return !!status.shouldPromptSettings;
+        }
+
+        function renderSettingsConnectionSummary() {
+            const node = document.getElementById('settings-connection-summary');
+            if (!node) return;
+            const status = setupStatus();
+            if (status.customProviderReady) {
+                node.textContent = `${t('setup_summary_custom')} ${t('setup_summary_custom_detail')}`;
+                return;
+            }
+            if (status.officialClaudeReady) {
+                node.textContent = t('setup_summary_official');
+                return;
+            }
+            node.textContent = t('setup_summary_unconfigured');
         }
 
         function escapeHtml(text) {
@@ -2513,6 +2567,7 @@
             const changed = nextSignature !== appState.bootstrapSignature;
             appState.bootstrapSignature = nextSignature;
             appState.bootstrap = payload;
+            appState.setupStatus = payload.setupStatus || {};
             appState.sessions = (payload.sessions || []).map((item) => normalizeSessionSummary(item));
             appState.library = payload.library || cloneEmptyLibrary();
             appState.folderRegistry = Array.isArray(payload.folders) ? payload.folders.map((item) => normalizeFolderName(item)).filter(Boolean) : [];
@@ -2530,6 +2585,7 @@
             appState.bootstrapLoaded = !fromCache;
             appState.bootstrapCacheUsed = fromCache;
             renderEverythingClaudeCodeSurface(payload.installers?.everythingClaudeCode || null);
+            renderSettingsConnectionSummary();
             const selectedSummary = appState.selectedSessionId
                 ? appState.sessions.find((item) => item.sessionId === appState.selectedSessionId)
                 : null;
@@ -3809,13 +3865,14 @@
             setSettingsStatus('');
         }
 
-        async function openSettingsDialog() {
+        async function openSettingsDialog({ reason = 'manual' } = {}) {
             const dialog = document.getElementById('settings-dialog');
             dialog.classList.add('is-open');
             dialog.setAttribute('aria-hidden', 'false');
             setSettingsStatus(t('loading_settings'));
             const payload = await apiJson('/claude-console/settings');
             const values = payload.values || {};
+            appState.setupStatus = payload.setupStatus || appState.setupStatus || {};
             appState.locale = resolveLocale(values.CLAUDE_CONSOLE_LOCALE || appState.locale);
             appState.providerSettings = normalizeProviderSettingsPayload(payload.providers, values);
             appState.modelCatalog = resolveModelCatalog(payload.modelCatalog, payload.modes);
@@ -3833,7 +3890,8 @@
                 ? t('env_file_label', { path: payload.envFile })
                 : '';
             renderEverythingClaudeCodeSurface(payload.installers?.everythingClaudeCode || null);
-            setSettingsStatus(payload.restartRequired ? t('settings_restart_required') : t('current_config_loaded'));
+            renderSettingsConnectionSummary();
+            setSettingsStatus(reason === 'startup-setup' ? t('startup_setup_prompt') : (payload.restartRequired ? t('settings_restart_required') : t('current_config_loaded')));
             window.setTimeout(() => {
                 const providerInput = document.querySelector('#settings-provider-fields [data-settings-env]');
                 if (providerInput && typeof providerInput.focus === 'function') {
@@ -3868,6 +3926,7 @@
                         },
                     }),
                 });
+                appState.setupStatus = payload.setupStatus || appState.setupStatus || {};
                 persistLocale(nextLocale);
                 appState.settingsInstallers = payload.installers || appState.settingsInstallers;
                 appState.settingsRouteOptions = Array.isArray(payload.routeOptions) ? payload.routeOptions : appState.settingsRouteOptions;
@@ -3876,6 +3935,7 @@
                 applyLocale();
                 renderProviderSettingsFields();
                 renderSettingsRouteOptions(payload.values?.EASY_CLAUDECODE_DEFAULT_ROUTE || '');
+                renderSettingsConnectionSummary();
                 renderModelOptions();
                 refreshModelRouteStatus({ force: true }).catch(() => {});
                 renderEverythingClaudeCodeSurface(payload.installers?.everythingClaudeCode || null);
@@ -4458,6 +4518,11 @@
                     appState.sidebarRenderPending = true;
                     queueDeferredSidebarRender();
                 }
+            }
+            if (!background && shouldAutoOpenStartupSetup()) {
+                appState.startupSetupAutoOpened = true;
+                markStartupSetupDismissed();
+                await openSettingsDialog({ reason: 'startup-setup' });
             }
 
             const selectionStillExists = appState.selectedSessionId && appState.sessions.some((item) => item.sessionId === appState.selectedSessionId);
