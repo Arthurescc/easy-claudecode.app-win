@@ -3157,7 +3157,7 @@ def _write_terminal_script(
             command_parts.extend(["-r", shlex.quote(session_id)])
         elif continue_latest:
             command_parts.append("-c")
-        elif prepared_prompt:
+        if prepared_prompt:
             command_parts.append("$promptText")
         with open(script_path, "w", encoding="utf-8") as f:
             f.write("$ErrorActionPreference = 'Stop'\n")
@@ -3167,7 +3167,7 @@ def _write_terminal_script(
             f.write("$env:no_proxy = '127.0.0.1,localhost'\n")
             for key in PROXY_ENV_KEYS:
                 f.write(f"Remove-Item Env:{key} -ErrorAction SilentlyContinue\n")
-            if prepared_prompt and not session_id and not continue_latest:
+            if prepared_prompt:
                 f.write(f"$promptText = @'\n{prepared_prompt}\n'@\n")
             f.write("Write-Host 'Claude Console 已启动'\n")
             f.write("Write-Host ''\n")
@@ -3187,7 +3187,7 @@ def _write_terminal_script(
     prepared_prompt = _prepare_claude_prompt(prompt, mode, normalized_agent_mode)
     tmux_binary = _tmux_binary()
     terminal_print_mode = bool(prepared_prompt and not session_id and not continue_latest)
-    inject_prompt_via_tmux = bool(tmux_binary and prepared_prompt and not terminal_print_mode and not session_id and not continue_latest)
+    inject_prompt_via_tmux = bool(tmux_binary and prepared_prompt and not terminal_print_mode)
     command_parts = [shlex.quote(CLAUDE_WRAPPER_PATH)]
     if terminal_print_mode:
         command_parts.append("-p")
@@ -3203,7 +3203,7 @@ def _write_terminal_script(
         command_parts.extend(["-r", shlex.quote(session_id)])
     elif continue_latest:
         command_parts.append("-c")
-    elif prepared_prompt and not inject_prompt_via_tmux:
+    if prepared_prompt and not inject_prompt_via_tmux:
         command_parts.append('"$PROMPT"')
     claude_command = " ".join(part for part in command_parts if part).strip()
     tmux_session_name = _tmux_session_name(session_id=session_id, prompt=prompt, continue_latest=continue_latest)

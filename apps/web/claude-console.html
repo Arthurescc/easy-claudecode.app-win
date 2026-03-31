@@ -2437,6 +2437,7 @@
             agentMode: 'auto',
             availableAgentModes: [],
             permissionMode: 'auto',
+            permissionModeDirty: false,
             reasoningMode: 'medium',
             personalityMode: 'default',
             activeRunId: null,
@@ -3070,9 +3071,12 @@
             return Array.from(document.getElementById('permission-mode')?.options || []).map((option) => String(option.value || '').trim()).filter(Boolean);
         }
 
-        function setPermissionMode(nextMode) {
+        function setPermissionMode(nextMode, { userInitiated = true } = {}) {
             const safeMode = String(nextMode || appState.chatShell?.permissionDefault || 'auto').trim() || 'auto';
             appState.permissionMode = safeMode;
+            if (userInitiated) {
+                appState.permissionModeDirty = true;
+            }
             const select = document.getElementById('permission-mode');
             if (select) select.value = safeMode;
             updateTopBadges();
@@ -3363,7 +3367,10 @@
                 ...appState.settingsInstallers,
                 ...(payload.installers || {}),
             };
-            appState.permissionMode = String(payload.webDefaults?.permissionMode || appState.chatShell.permissionDefault || 'auto').trim() || 'auto';
+            const incomingPermissionMode = String(payload.webDefaults?.permissionMode || appState.chatShell.permissionDefault || 'auto').trim() || 'auto';
+            if (!appState.permissionModeDirty) {
+                setPermissionMode(incomingPermissionMode, { userInitiated: false });
+            }
             if (payload.webDefaults?.locale) {
                 persistLocale(payload.webDefaults.locale);
             }
@@ -5941,11 +5948,14 @@
         async function openTerminalSession() {
             const busyRun = findBusyRunForSession(appState.selectedSessionId);
             const forkForSystemSession = shouldForkSessionForManualChat(appState.selectedSessionId);
+            const prompt = String(document.getElementById('composer-input')?.value || '').trim();
             const payload = {
                 mode: appState.mode,
                 agentMode: appState.agentMode,
                 sessionId: (busyRun || forkForSystemSession) ? '' : appState.selectedSessionId,
                 permissionMode: appState.permissionMode,
+                prompt,
+                shellSelections: serializeComposerChips(),
             };
             await apiJson('/claude-console/open-session', {
                 method: 'POST',
