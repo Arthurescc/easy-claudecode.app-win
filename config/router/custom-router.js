@@ -207,6 +207,57 @@ function keepUserAuthoredText(text) {
   return trimmed;
 }
 
+function stripRouteMarkersFromString(value) {
+  return String(value || "")
+    .replace(/\[route:[^\]]+\]\s*/ig, "")
+    .trim();
+}
+
+function stripRouteMarkersFromContent(content) {
+  if (typeof content === "string") {
+    return stripRouteMarkersFromString(content);
+  }
+  if (Array.isArray(content)) {
+    return content.map((item) => {
+      if (!item) return item;
+      if (typeof item === "string") {
+        return stripRouteMarkersFromString(item);
+      }
+      const nextItem = { ...item };
+      if (typeof nextItem.text === "string") {
+        nextItem.text = stripRouteMarkersFromString(nextItem.text);
+      }
+      if (typeof nextItem.content === "string") {
+        nextItem.content = stripRouteMarkersFromString(nextItem.content);
+      }
+      return nextItem;
+    });
+  }
+  if (content && typeof content === "object") {
+    const nextContent = { ...content };
+    if (typeof nextContent.text === "string") {
+      nextContent.text = stripRouteMarkersFromString(nextContent.text);
+    }
+    if (typeof nextContent.content === "string") {
+      nextContent.content = stripRouteMarkersFromString(nextContent.content);
+    }
+    return nextContent;
+  }
+  return content;
+}
+
+function stripRouteMarkersFromMessages(messages) {
+  if (!Array.isArray(messages)) {
+    return;
+  }
+  for (const message of messages) {
+    if (!message || message.role !== "user") {
+      continue;
+    }
+    message.content = stripRouteMarkersFromContent(message.content);
+  }
+}
+
 function normalizeRoutingText(text) {
   return String(text || "")
     .toLowerCase()
@@ -261,6 +312,7 @@ module.exports = async function router(req) {
 
   for (const route of EXPLICIT_ROUTES) {
     if (route.pattern.test(userText) || route.pattern.test(allText)) {
+      stripRouteMarkersFromMessages(req?.body?.messages);
       return route.target;
     }
   }

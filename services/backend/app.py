@@ -403,6 +403,12 @@ EDITABLE_SETTINGS_DEFAULTS = {
     "CLAUDE_PROXY_HEALTH_URL": "http://127.0.0.1:3460/health",
     "CLAUDE_CONSOLE_LOCALE": "zh-CN",
 }
+ECC_UPSTREAM_REPO_URL = "https://github.com/affaan-m/everything-claude-code.git"
+ECC_DEFAULT_TARGET = (os.getenv("EASY_CLAUDECODE_ECC_DEFAULT_TARGET", "claude") or "claude").strip().lower()
+ECC_DEFAULT_PROFILE = (os.getenv("EASY_CLAUDECODE_ECC_DEFAULT_PROFILE", "full") or "full").strip().lower()
+ECC_INSTALL_SCRIPT = os.path.join(SOURCE_ROOT, "scripts", "install-everything-claude-code.ps1")
+ECC_VALID_TARGETS = {"claude", "cursor", "antigravity", "codex", "opencode"}
+ECC_VALID_PROFILES = {"core", "developer", "security", "research", "full"}
 
 app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path="/static")
 
@@ -556,6 +562,118 @@ def _sync_router_runtime() -> dict[str, object]:
             timeout=60,
         )
     return _run_capture(["/bin/zsh", script_path], cwd=SOURCE_ROOT, timeout=60)
+
+
+def _powershell_bin() -> str:
+    configured = str(os.getenv("EASY_POWERSHELL_BIN", "") or "").strip()
+    if configured:
+        return configured
+    if shutil.which("pwsh"):
+        return "pwsh"
+    return "powershell"
+
+
+def _everything_claude_code_base_payload() -> dict[str, object]:
+    return {
+        "available": bool(IS_WINDOWS and os.path.exists(ECC_INSTALL_SCRIPT)),
+        "optional": True,
+        "defaultSelected": False,
+        "repoUrl": ECC_UPSTREAM_REPO_URL,
+        "target": ECC_DEFAULT_TARGET,
+        "profile": ECC_DEFAULT_PROFILE,
+        "installed": False,
+        "revision": "",
+        "repoPath": os.path.join(EASY_CLAUDECODE_HOME, "vendor", "everything-claude-code"),
+        "lastInstalledAt": "",
+    }
+
+
+def _everything_claude_code_status() -> dict[str, object]:
+    payload = _everything_claude_code_base_payload()
+    if not payload["available"]:
+        payload["status"] = "unavailable"
+        return payload
+
+    result = _run_capture(
+        [
+            _powershell_bin(),
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            ECC_INSTALL_SCRIPT,
+            "-StatusOnly",
+            "-Target",
+            ECC_DEFAULT_TARGET,
+            "-Profile",
+            ECC_DEFAULT_PROFILE,
+        ],
+        cwd=SOURCE_ROOT,
+        timeout=60,
+    )
+    if not result.get("ok"):
+        payload["status"] = "error"
+        payload["error"] = result.get("stderr") or result.get("stdout") or "status lookup failed"
+        return payload
+
+    try:
+        status_payload = json.loads(result.get("stdout") or "{}")
+        if isinstance(status_payload, dict):
+            payload.update(status_payload)
+    except Exception:
+        payload["status"] = "error"
+        payload["error"] = result.get("stdout") or "invalid installer status payload"
+        return payload
+
+    payload["status"] = "installed" if payload.get("installed") else "ready"
+    return _json_safe(payload)
+
+
+def _run_everything_claude_code_install(target: str, profile: str) -> dict[str, object]:
+    normalized_target = str(target or ECC_DEFAULT_TARGET).strip().lower()
+    normalized_profile = str(profile or ECC_DEFAULT_PROFILE).strip().lower()
+    if normalized_target not in ECC_VALID_TARGETS:
+        raise ValueError(f"unsupported target: {normalized_target}")
+    if normalized_profile not in ECC_VALID_PROFILES:
+        raise ValueError(f"unsupported profile: {normalized_profile}")
+    if not IS_WINDOWS:
+        raise RuntimeError("Everything Claude Code installer is only exposed in the Windows app flow")
+    if not os.path.exists(ECC_INSTALL_SCRIPT):
+        raise FileNotFoundError(ECC_INSTALL_SCRIPT)
+
+    result = _run_capture(
+        [
+            _powershell_bin(),
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            ECC_INSTALL_SCRIPT,
+            "-Target",
+            normalized_target,
+            "-Profile",
+            normalized_profile,
+        ],
+        cwd=SOURCE_ROOT,
+        timeout=3600,
+    )
+    if not result.get("ok"):
+        raise RuntimeError(result.get("stderr") or result.get("stdout") or "Everything Claude Code install failed")
+
+    try:
+        payload = json.loads(result.get("stdout") or "{}")
+    except Exception:
+        payload = {
+            "installed": True,
+            "target": normalized_target,
+            "profile": normalized_profile,
+            "output": result.get("stdout") or "",
+        }
+    if isinstance(payload, dict):
+        payload.setdefault("installed", True)
+        payload.setdefault("target", normalized_target)
+        payload.setdefault("profile", normalized_profile)
+    return _json_safe(payload)
 
 
 def _open_local_path(target: str, *, reveal: bool = False) -> dict[str, object]:
@@ -2153,6 +2271,9 @@ def _build_status(force_refresh: bool = False) -> dict:
             "proxyLog": _read_tail(CLAUDE_PROXY_LOG),
             "proxyErrors": _read_tail(CLAUDE_PROXY_ERR_LOG),
         },
+        "installers": {
+            "everythingClaudeCode": _everything_claude_code_status(),
+        },
     }
     with STATUS_CACHE_LOCK:
         STATUS_CACHE["payload"] = copy.deepcopy(payload)
@@ -3082,6 +3203,9 @@ def claude_console_settings():
             "ok": True,
             "envFile": EASY_CLAUDECODE_ENV_FILE,
             "values": _load_editable_settings(),
+            "installers": {
+                "everythingClaudeCode": _everything_claude_code_status(),
+            },
             "restartRequired": True,
         }
     )
@@ -3107,11 +3231,33 @@ def claude_console_update_settings():
             "saved": True,
             "envFile": EASY_CLAUDECODE_ENV_FILE,
             "values": _load_editable_settings(),
+            "installers": {
+                "everythingClaudeCode": _everything_claude_code_status(),
+            },
             "sync": sync_result,
             "restartRequired": True,
             "msg": "设置已保存。重启 Claude Code.app 后即可完整应用新的 API key 与上游配置。",
         }
     )
+
+
+@app.route("/claude-console/installers/everything-claude-code", methods=["POST"])
+def claude_console_install_everything_claude_code():
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        return jsonify({"ok": False, "msg": "invalid json"}), 400
+    try:
+        payload = _run_everything_claude_code_install(
+            target=str(data.get("target") or ECC_DEFAULT_TARGET),
+            profile=str(data.get("profile") or ECC_DEFAULT_PROFILE),
+        )
+        return jsonify({"ok": True, "installer": "everything-claude-code", **payload})
+    except ValueError as exc:
+        return jsonify({"ok": False, "msg": str(exc)}), 400
+    except FileNotFoundError:
+        return jsonify({"ok": False, "msg": "installer script not found"}), 404
+    except Exception as exc:
+        return jsonify({"ok": False, "msg": str(exc)}), 500
 
 
 @app.route("/claude-console/open-location", methods=["POST"])

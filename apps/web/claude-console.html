@@ -929,14 +929,67 @@
             padding: 30px 18px 42px;
         }
 
+        .welcome-grid {
+            width: min(980px, 100%);
+            display: grid;
+            grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.9fr);
+            gap: 18px;
+            align-items: stretch;
+        }
+
         .welcome-card {
-            width: min(760px, 100%);
+            width: 100%;
             text-align: center;
             padding: 48px 36px;
             border-radius: 32px;
             border: 1px solid var(--line);
             background: rgba(255, 253, 249, 0.88);
             box-shadow: var(--shadow);
+        }
+
+        .welcome-addon-card,
+        .settings-addon-card {
+            text-align: left;
+            display: grid;
+            gap: 14px;
+        }
+
+        .welcome-addon-head,
+        .settings-addon-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 14px;
+        }
+
+        .welcome-addon-title,
+        .settings-addon-title {
+            margin: 0;
+            font-size: 28px;
+            line-height: 1.08;
+            letter-spacing: -0.04em;
+            font-weight: 680;
+        }
+
+        .welcome-note.tight,
+        .overlay-note.tight {
+            margin: 0;
+            max-width: none;
+        }
+
+        .welcome-addon-meta,
+        .settings-addon-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .settings-addon-card {
+            margin-top: 8px;
+            padding: 18px;
+            border-radius: 22px;
+            border: 1px solid var(--line);
+            background: rgba(255, 252, 247, 0.82);
         }
 
         .welcome-chip {
@@ -1199,6 +1252,9 @@
             .workspace-title h1 {
                 white-space: normal;
             }
+            .welcome-grid {
+                grid-template-columns: 1fr;
+            }
             .settings-grid {
                 grid-template-columns: 1fr;
             }
@@ -1276,9 +1332,31 @@
 
             <section class="workspace-body" id="workspace-body">
                 <div class="welcome-state" id="welcome-state">
-                    <div class="welcome-card">
-                        <div class="welcome-chip" id="welcome-chip">Claude Code</div>
-                        <div class="welcome-title" id="welcome-title">直接开始新线程。</div>
+                    <div class="welcome-grid">
+                        <div class="welcome-card">
+                            <div class="welcome-chip" id="welcome-chip">Claude Code</div>
+                            <div class="welcome-title" id="welcome-title">直接开始新线程。</div>
+                            <div class="welcome-note" id="welcome-note">Windows 开源版默认只安装主应用，Everything Claude Code 保持可选安装。</div>
+                            <div class="welcome-actions">
+                                <button class="primary-btn" id="welcome-start-thread" type="button">开始新线程</button>
+                                <button class="ghost-btn" id="welcome-open-settings" type="button">打开设置</button>
+                            </div>
+                        </div>
+                        <div class="welcome-card welcome-addon-card" id="welcome-ecc-card">
+                            <div class="welcome-addon-head">
+                                <div>
+                                    <div class="welcome-chip" id="welcome-ecc-chip">Optional add-on</div>
+                                    <div class="welcome-addon-title" id="welcome-ecc-title">Everything Claude Code</div>
+                                </div>
+                                <span class="session-status-pill" id="welcome-ecc-status">Checking</span>
+                            </div>
+                            <div class="welcome-note tight" id="welcome-ecc-note">Install from the official GitHub repository. It stays optional and does not block the base app.</div>
+                            <div class="welcome-addon-meta" id="welcome-ecc-meta"></div>
+                            <div class="welcome-actions">
+                                <button class="ghost-btn" id="welcome-ecc-open-repo" type="button">Official GitHub</button>
+                                <button class="primary-btn" id="welcome-ecc-install" type="button">Install optional add-on</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="messages" id="messages" style="display:none;"></div>
@@ -1383,6 +1461,21 @@
                     </label>
                 </div>
                 <div class="settings-help" id="settings-dialog-env-path"></div>
+                <div class="settings-addon-card" id="settings-ecc-card">
+                    <div class="settings-addon-head">
+                        <div>
+                            <div class="welcome-chip" id="settings-ecc-chip">Optional add-on</div>
+                            <div class="settings-addon-title" id="settings-ecc-title">Everything Claude Code</div>
+                        </div>
+                        <span class="session-status-pill" id="settings-ecc-status">Checking</span>
+                    </div>
+                    <div class="overlay-note tight" id="settings-ecc-note">Install from the official GitHub repository. It stays optional and does not block the base app.</div>
+                    <div class="settings-addon-meta" id="settings-ecc-meta"></div>
+                    <div class="welcome-actions">
+                        <button class="ghost-btn" id="settings-ecc-open-repo" type="button">Official GitHub</button>
+                        <button class="primary-btn" id="settings-ecc-install" type="button">Install optional add-on</button>
+                    </div>
+                </div>
                 <div class="overlay-note" id="settings-dialog-status"></div>
             </div>
             <div class="overlay-foot">
@@ -1437,6 +1530,9 @@
                 workspace_subtitle_default: 'Claude Code 中文工作台 · Coding Plan 已接入',
                 workspace_title_new: '新对话',
                 welcome_title: '直接开始新线程。',
+                welcome_note: 'Windows 开源版默认只安装主应用，Everything Claude Code 保持可选安装。',
+                welcome_start: '开始新线程',
+                welcome_open_settings: '打开设置',
                 settings_button: '设置',
                 open_terminal: '在终端继续',
                 permission_web: '网页权限',
@@ -1472,6 +1568,27 @@
                 saving_settings: '正在保存配置...',
                 settings_saved: '设置已保存。',
                 settings_restart_required: '保存后需重启 Claude Code.app，新的模型密钥与上游地址才会完整生效。',
+                ecc_chip: '可选组件',
+                ecc_title: 'Everything Claude Code',
+                ecc_note_ready: '从官方 GitHub 开源仓库安装。默认不安装，不影响主应用使用。',
+                ecc_note_installed: '已接入官方 GitHub 开源仓库版本，之后可以直接重新安装或更新。',
+                ecc_note_unavailable: '当前运行环境未暴露安装脚本，但主应用仍可正常使用。',
+                ecc_status_checking: '检查中',
+                ecc_status_ready: '可选安装',
+                ecc_status_installed: '已安装',
+                ecc_status_installing: '安装中',
+                ecc_status_unavailable: '当前不可用',
+                ecc_status_error: '需要检查',
+                ecc_button_install: '安装可选组件',
+                ecc_button_update: '重新安装 / 更新',
+                ecc_button_repo: '官方 GitHub',
+                ecc_install_running: '正在安装 Everything Claude Code，这不会影响主应用。',
+                ecc_install_success: 'Everything Claude Code 已安装完成。',
+                ecc_install_unavailable: '当前环境无法执行 Everything Claude Code 安装。',
+                ecc_meta_target: '目标',
+                ecc_meta_profile: '配置',
+                ecc_meta_revision: '版本',
+                ecc_meta_not_installed: '尚未安装',
                 env_file_label: '当前写入文件：{path}',
                 loading_automations: '正在同步自动化列表...',
                 empty_automations: '没有可显示的自动化。',
@@ -1593,6 +1710,9 @@
                 workspace_subtitle_default: 'Claude Code workspace · Coding Plan connected',
                 workspace_title_new: 'New chat',
                 welcome_title: 'Start a new thread right away.',
+                welcome_note: 'The open-source Windows build installs the base app by default and keeps Everything Claude Code optional.',
+                welcome_start: 'Start a thread',
+                welcome_open_settings: 'Open settings',
                 settings_button: 'Settings',
                 open_terminal: 'Continue in Terminal',
                 permission_web: 'Web permissions',
@@ -1628,6 +1748,27 @@
                 saving_settings: 'Saving settings...',
                 settings_saved: 'Settings saved.',
                 settings_restart_required: 'Restart Claude Code.app after saving to fully apply the new model keys and upstream URLs.',
+                ecc_chip: 'Optional add-on',
+                ecc_title: 'Everything Claude Code',
+                ecc_note_ready: 'Install from the official GitHub repository. It stays optional and does not block the base app.',
+                ecc_note_installed: 'The official GitHub open-source version is already installed. You can reinstall or update it any time.',
+                ecc_note_unavailable: 'This runtime does not currently expose the installer script, but the base app still works normally.',
+                ecc_status_checking: 'Checking',
+                ecc_status_ready: 'Optional install',
+                ecc_status_installed: 'Installed',
+                ecc_status_installing: 'Installing',
+                ecc_status_unavailable: 'Unavailable',
+                ecc_status_error: 'Needs attention',
+                ecc_button_install: 'Install optional add-on',
+                ecc_button_update: 'Reinstall / update',
+                ecc_button_repo: 'Official GitHub',
+                ecc_install_running: 'Installing Everything Claude Code. The base app will keep working while this runs.',
+                ecc_install_success: 'Everything Claude Code finished installing.',
+                ecc_install_unavailable: 'This environment cannot run the Everything Claude Code installer right now.',
+                ecc_meta_target: 'Target',
+                ecc_meta_profile: 'Profile',
+                ecc_meta_revision: 'Revision',
+                ecc_meta_not_installed: 'Not installed yet',
                 env_file_label: 'Writing to: {path}',
                 loading_automations: 'Syncing automations...',
                 empty_automations: 'No automations to show.',
@@ -1860,6 +2001,8 @@
             messageWindowBySession: {},
             sessionLoadController: null,
             settingsBusy: false,
+            settingsInstallers: {},
+            eccInstallBusy: false,
         };
 
         let dialogConfirmHandler = null;
@@ -1974,6 +2117,12 @@
             document.getElementById('settings-dialog-message').textContent = t('settings_message');
             const welcomeTitle = document.getElementById('welcome-title');
             if (welcomeTitle) welcomeTitle.textContent = t('welcome_title');
+            const welcomeNote = document.getElementById('welcome-note');
+            if (welcomeNote) welcomeNote.textContent = t('welcome_note');
+            const welcomeStart = document.getElementById('welcome-start-thread');
+            if (welcomeStart) welcomeStart.textContent = t('welcome_start');
+            const welcomeOpenSettings = document.getElementById('welcome-open-settings');
+            if (welcomeOpenSettings) welcomeOpenSettings.textContent = t('welcome_open_settings');
             const emptyPanel = document.querySelector('#session-groups .empty-panel');
             if (emptyPanel && !appState.bootstrapLoaded && !appState.bootstrapCacheUsed) {
                 emptyPanel.textContent = t('loading_threads');
@@ -1997,6 +2146,7 @@
             updateSidebarChrome();
             renderModelOptions();
             renderAgentModeOptions();
+            renderEverythingClaudeCodeSurface();
             updateWorkspaceTitle();
             updateTopBadges();
             renderSidebar({ force: true });
@@ -2164,12 +2314,17 @@
             appState.folderRegistry = Array.isArray(payload.folders) ? payload.folders.map((item) => normalizeFolderName(item)).filter(Boolean) : [];
             appState.availableModes = payload.modes || appState.availableModes;
             appState.availableAgentModes = payload.agentModes || appState.availableAgentModes;
+            appState.settingsInstallers = {
+                ...appState.settingsInstallers,
+                ...(payload.installers || {}),
+            };
             appState.permissionMode = 'default';
             if (payload.webDefaults?.locale) {
                 persistLocale(payload.webDefaults.locale);
             }
             appState.bootstrapLoaded = !fromCache;
             appState.bootstrapCacheUsed = fromCache;
+            renderEverythingClaudeCodeSurface(payload.installers?.everythingClaudeCode || null);
             const selectedSummary = appState.selectedSessionId
                 ? appState.sessions.find((item) => item.sessionId === appState.selectedSessionId)
                 : null;
@@ -3174,6 +3329,170 @@
             node.classList.toggle('error', Boolean(isError && message));
         }
 
+        function focusComposerInput() {
+            const input = document.getElementById('composer-input');
+            if (input) input.focus();
+        }
+
+        function isSettingsDialogOpen() {
+            return document.getElementById('settings-dialog')?.classList.contains('is-open');
+        }
+
+        function getEverythingClaudeCodeInstaller(installer = null) {
+            if (installer && typeof installer === 'object') return installer;
+            const settingsInstaller = appState.settingsInstallers?.everythingClaudeCode;
+            if (settingsInstaller && typeof settingsInstaller === 'object') return settingsInstaller;
+            const bootstrapInstaller = appState.bootstrap?.installers?.everythingClaudeCode;
+            if (bootstrapInstaller && typeof bootstrapInstaller === 'object') return bootstrapInstaller;
+            return null;
+        }
+
+        function getEverythingClaudeCodeStatus(installer) {
+            if (appState.eccInstallBusy) {
+                return { label: t('ecc_status_installing'), className: '' };
+            }
+            if (!installer) {
+                return { label: t('ecc_status_checking'), className: '' };
+            }
+            if (installer.status === 'error') {
+                return { label: t('ecc_status_error'), className: 'fail' };
+            }
+            if (installer.installed) {
+                return { label: t('ecc_status_installed'), className: 'ok' };
+            }
+            if (installer.available) {
+                return { label: t('ecc_status_ready'), className: '' };
+            }
+            return { label: t('ecc_status_unavailable'), className: 'fail' };
+        }
+
+        function getEverythingClaudeCodeNote(installer) {
+            if (installer?.installed) return t('ecc_note_installed');
+            if (installer && installer.available === false) return t('ecc_note_unavailable');
+            return t('ecc_note_ready');
+        }
+
+        function getEverythingClaudeCodeMeta(installer) {
+            if (!installer) return '';
+            const parts = [
+                `${t('ecc_meta_target')}: ${String(installer.target || 'claude').trim() || 'claude'}`,
+                `${t('ecc_meta_profile')}: ${String(installer.profile || 'full').trim() || 'full'}`,
+                `${t('ecc_meta_revision')}: ${String(installer.revision || '').trim() || t('ecc_meta_not_installed')}`,
+            ];
+            if (installer.status === 'error' && installer.error) {
+                parts.push(String(installer.error));
+            }
+            return parts.join(' · ');
+        }
+
+        function updateEverythingClaudeCodeCard(prefix, installer) {
+            const card = document.getElementById(`${prefix}-ecc-card`);
+            if (!card) return;
+            const chip = document.getElementById(`${prefix}-ecc-chip`);
+            const title = document.getElementById(`${prefix}-ecc-title`);
+            const status = document.getElementById(`${prefix}-ecc-status`);
+            const note = document.getElementById(`${prefix}-ecc-note`);
+            const meta = document.getElementById(`${prefix}-ecc-meta`);
+            const repoButton = document.getElementById(`${prefix}-ecc-open-repo`);
+            const installButton = document.getElementById(`${prefix}-ecc-install`);
+            const nextInstaller = getEverythingClaudeCodeInstaller(installer);
+            const statusInfo = getEverythingClaudeCodeStatus(nextInstaller);
+
+            if (chip) chip.textContent = t('ecc_chip');
+            if (title) title.textContent = t('ecc_title');
+            if (status) {
+                status.textContent = statusInfo.label;
+                status.classList.toggle('ok', statusInfo.className === 'ok');
+                status.classList.toggle('fail', statusInfo.className === 'fail');
+            }
+            if (note) note.textContent = getEverythingClaudeCodeNote(nextInstaller);
+            if (meta) meta.textContent = getEverythingClaudeCodeMeta(nextInstaller);
+            if (repoButton) {
+                repoButton.textContent = t('ecc_button_repo');
+                repoButton.disabled = false;
+            }
+            if (installButton) {
+                installButton.textContent = nextInstaller?.installed ? t('ecc_button_update') : t('ecc_button_install');
+                installButton.disabled = appState.eccInstallBusy || !nextInstaller || nextInstaller.available === false;
+                installButton.style.opacity = installButton.disabled ? '0.68' : '1';
+            }
+            card.dataset.status = String(nextInstaller?.status || '');
+        }
+
+        function renderEverythingClaudeCodeSurface(installer = null) {
+            updateEverythingClaudeCodeCard('welcome', installer);
+            updateEverythingClaudeCodeCard('settings', installer);
+        }
+
+        function openEverythingClaudeCodeRepo() {
+            const installer = getEverythingClaudeCodeInstaller();
+            const repoUrl = String(installer?.repoUrl || 'https://github.com/affaan-m/everything-claude-code').trim();
+            window.open(repoUrl, '_blank', 'noopener');
+        }
+
+        async function installEverythingClaudeCode() {
+            if (appState.eccInstallBusy) return;
+            const installer = getEverythingClaudeCodeInstaller();
+            if (!installer || installer.available === false) {
+                const message = t('ecc_install_unavailable');
+                setSettingsStatus(message, true);
+                if (!isSettingsDialogOpen()) window.alert(message);
+                return;
+            }
+
+            appState.eccInstallBusy = true;
+            renderEverythingClaudeCodeSurface(installer);
+            setSettingsStatus(t('ecc_install_running'));
+
+            try {
+                const payload = await apiJson('/claude-console/installers/everything-claude-code', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        target: installer.target || 'claude',
+                        profile: installer.profile || 'full',
+                    }),
+                });
+                const nextInstaller = {
+                    ...installer,
+                    ...payload,
+                    installed: true,
+                    available: true,
+                    status: 'installed',
+                };
+                appState.settingsInstallers = {
+                    ...appState.settingsInstallers,
+                    everythingClaudeCode: nextInstaller,
+                };
+                renderEverythingClaudeCodeSurface(nextInstaller);
+                setSettingsStatus(t('ecc_install_success'));
+                await loadBootstrap({ keepSelection: true, preserveCurrent: true, background: true });
+                if (!isSettingsDialogOpen()) {
+                    window.alert(t('ecc_install_success'));
+                }
+            } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                const failedInstaller = {
+                    ...installer,
+                    status: 'error',
+                    error: message,
+                };
+                appState.settingsInstallers = {
+                    ...appState.settingsInstallers,
+                    everythingClaudeCode: failedInstaller,
+                };
+                renderEverythingClaudeCodeSurface(failedInstaller);
+                setSettingsStatus(message, true);
+                if (!isSettingsDialogOpen()) {
+                    window.alert(message);
+                }
+                throw error;
+            } finally {
+                appState.eccInstallBusy = false;
+                renderEverythingClaudeCodeSurface();
+            }
+        }
+
         function closeSettingsDialog() {
             const dialog = document.getElementById('settings-dialog');
             dialog.classList.remove('is-open');
@@ -3196,11 +3515,13 @@
             document.getElementById('settings-opus-upstream').value = values.CLAUDE_OPUS_PROXY_UPSTREAM || '';
             document.getElementById('settings-router-health').value = values.CLAUDE_ROUTER_HEALTH_URL || '';
             document.getElementById('settings-proxy-health').value = values.CLAUDE_PROXY_HEALTH_URL || '';
+            appState.settingsInstallers = payload.installers || {};
             renderLocaleOptions();
             document.getElementById('settings-locale').value = currentLocale();
             document.getElementById('settings-dialog-env-path').textContent = payload.envFile
                 ? t('env_file_label', { path: payload.envFile })
                 : '';
+            renderEverythingClaudeCodeSurface(payload.installers?.everythingClaudeCode || null);
             setSettingsStatus(payload.restartRequired ? t('settings_restart_required') : t('current_config_loaded'));
             window.setTimeout(() => document.getElementById('settings-dashscope-key').focus(), 30);
         }
@@ -3231,7 +3552,9 @@
                     }),
                 });
                 persistLocale(nextLocale);
+                appState.settingsInstallers = payload.installers || appState.settingsInstallers;
                 applyLocale();
+                renderEverythingClaudeCodeSurface(payload.installers?.everythingClaudeCode || null);
                 setSettingsStatus(t('settings_saved'));
                 window.setTimeout(() => closeSettingsDialog(), 380);
             } catch (error) {
@@ -4584,6 +4907,25 @@
             });
             document.getElementById('btn-open-terminal').addEventListener('click', () => {
                 openTerminalSession().catch(handleError);
+            });
+            document.getElementById('welcome-start-thread').addEventListener('click', () => {
+                newDraftConversation();
+                focusComposerInput();
+            });
+            document.getElementById('welcome-open-settings').addEventListener('click', () => {
+                openSettingsDialog().catch(handleError);
+            });
+            document.getElementById('welcome-ecc-open-repo').addEventListener('click', () => {
+                openEverythingClaudeCodeRepo();
+            });
+            document.getElementById('welcome-ecc-install').addEventListener('click', () => {
+                installEverythingClaudeCode().catch((error) => console.error('welcome ecc install failed', error));
+            });
+            document.getElementById('settings-ecc-open-repo').addEventListener('click', () => {
+                openEverythingClaudeCodeRepo();
+            });
+            document.getElementById('settings-ecc-install').addEventListener('click', () => {
+                installEverythingClaudeCode().catch((error) => console.error('settings ecc install failed', error));
             });
             document.getElementById('sidebar-dialog-close').addEventListener('click', () => {
                 closeSidebarDialog();

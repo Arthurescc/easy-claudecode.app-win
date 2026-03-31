@@ -48,6 +48,8 @@ The Settings button in the top-right corner lets users update API keys, upstream
 
 首次运行 `scripts\\open-claude-code.ps1` 或 `scripts\\open-claude-code.cmd` 时，仓库会自动构建 `apps\\desktop-windows\\bin\\Claude Code.app.exe`、创建或修复桌面快捷方式 `Claude Code.app.lnk`，并安装全局 `cc.cmd` 入口。双击桌面快捷方式时会直接打开独立 app 窗口，不再跳到默认浏览器标签页。
 
+GitHub Releases 现在默认发布 Windows 安装器 `easy-claudecode.app-win-<version>-setup.exe`。安装器会提供桌面快捷方式、`cc.cmd` 和 `Everything Claude Code` 可选安装项，其中 ECC 默认不勾选，不会阻塞主应用安装。
+
 前端工作台保持原版交互；模型切换走命令行 `cc switch`，例如：
 
 ```powershell
@@ -65,6 +67,14 @@ cc switch dashscope-codingplan,glm-5
 它用于在 Windows-on-ARM 虚拟机里验证共享目录、OEM 首启钩子、Python 安装和 `claude-console` 后端健康检查。详细说明见：
 
 - [qa/windows-vm/README.md](qa/windows-vm/README.md)
+
+## 发布产物
+
+- 源码内打包：`npm run package:release`
+- 主要产物：`dist/easy-claudecode.app-win-<version>-setup.exe`
+- 附带 staging 目录：`dist/easy-claudecode.app-win-<version>/`
+
+安装器内会继续保留开源版的可选 `Everything Claude Code` 安装入口，也可以在应用欢迎页和设置弹层里后装。
 
 ## 可选集成
 

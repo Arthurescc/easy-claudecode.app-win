@@ -76,6 +76,31 @@ DISPLAY_MODEL_ALIASES = {
 DEFAULT_PERMISSION_MODE = (os.getenv("CLAUDE_WEB_PERMISSION_MODE", "bypassPermissions") or "bypassPermissions").strip()
 
 
+def _resolve_real_claude_bin() -> str:
+    raw_candidate = str(os.getenv("CLAUDE_REAL_BIN", "claude") or "").strip()
+    if not raw_candidate:
+        return ""
+    expanded = os.path.expanduser(raw_candidate)
+    if os.path.isabs(expanded) or os.sep in expanded or (os.name == "nt" and "/" in expanded):
+        return expanded if os.path.exists(expanded) else ""
+    resolved = shutil.which(expanded)
+    return resolved or ""
+
+
+def _router_base_url() -> str:
+    raw = str(os.getenv("ANTHROPIC_BASE_URL") or "").strip()
+    if raw:
+        return raw
+    health_url = str(os.getenv("CLAUDE_ROUTER_HEALTH_URL", "http://127.0.0.1:3456/health") or "").strip()
+    if health_url.endswith("/health"):
+        return health_url[: -len("/health")]
+    return health_url or "http://127.0.0.1:3456"
+
+
+def _router_auth_token() -> str:
+    return str(os.getenv("ANTHROPIC_AUTH_TOKEN", "easy-claudecode-local-router") or "easy-claudecode-local-router").strip()
+
+
 def normalize_display_model(model_name: str) -> str:
     normalized = str(model_name or "").strip()
     return DISPLAY_MODEL_ALIASES.get(normalized, normalized)
@@ -1016,14 +1041,33 @@ def _clean_subprocess_env() -> Dict[str, str]:
     clean_env["NO_PROXY"] = LOCAL_NO_PROXY_VALUE
     clean_env["no_proxy"] = LOCAL_NO_PROXY_VALUE
     clean_env.setdefault("CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS", "1")
+    clean_env["ANTHROPIC_BASE_URL"] = _router_base_url()
+    clean_env["ANTHROPIC_AUTH_TOKEN"] = _router_auth_token()
     for key in PROXY_ENV_KEYS:
         clean_env.pop(key, None)
     return clean_env
 
 
+def _normalize_claude_command(cmd: List[str]) -> List[str]:
+    normalized = list(cmd)
+    if os.name != "nt" or not normalized:
+        return normalized
+    first = str(normalized[0] or "").strip()
+    if not first:
+        return normalized
+    lower_name = Path(first).name.lower()
+    if lower_name not in {"claude-local-router.cmd", "claude-local-router.bat"}:
+        return normalized
+    real_bin = _resolve_real_claude_bin()
+    if real_bin:
+        normalized[0] = real_bin
+    return normalized
+
+
 def _spawn_pty_process(cmd: List[str], cwd: str) -> tuple[subprocess.Popen, int]:
     if pty is None:
         raise OSError("pty unsupported on this platform")
+    cmd = _normalize_claude_command(cmd)
     master_fd, slave_fd = pty.openpty()
     try:
         process = subprocess.Popen(
@@ -1046,6 +1090,7 @@ def _spawn_pty_process(cmd: List[str], cwd: str) -> tuple[subprocess.Popen, int]
 
 
 def _spawn_pipe_process(cmd: List[str], cwd: str) -> subprocess.Popen:
+    cmd = _normalize_claude_command(cmd)
     process = subprocess.Popen(
         cmd,
         cwd=cwd,

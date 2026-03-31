@@ -9,6 +9,7 @@ $ErrorActionPreference = "Stop"
 
 $ProjectDir = Join-Path $env:EASY_CLAUDECODE_ROOT "apps\desktop-windows\launcher"
 $ProgramFile = Join-Path $ProjectDir "Program.cs"
+$IconPath = Join-Path $env:EASY_CLAUDECODE_ROOT "apps\desktop-windows\assets\ClaudeCodeApp.ico"
 $ResolvedOutputDir = if ($OutputDir) { $OutputDir } else { $env:EASY_CLAUDECODE_DESKTOP_LAUNCHER_DIR }
 $CscCandidates = @(
     "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe",
@@ -22,6 +23,9 @@ if (-not (Test-Path $ProgramFile)) {
 if (-not $CscPath) {
     throw "csc.exe not found in the default .NET Framework paths"
 }
+if (-not (Test-Path $IconPath)) {
+    throw "launcher icon not found: $IconPath"
+}
 
 New-Item -ItemType Directory -Force -Path $ResolvedOutputDir | Out-Null
 
@@ -31,6 +35,7 @@ $CompileArgs = @(
     "/target:winexe",
     "/optimize+",
     "/out:$LauncherPath",
+    "/win32icon:$IconPath",
     "/r:System.dll",
     "/r:System.Core.dll",
     "/r:System.Windows.Forms.dll",

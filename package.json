@@ -1,6 +1,6 @@
 {
   "name": "easy-claudecode.app-win",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "description": "The Windows-oriented release of easy-claudecode.app with local backend, browser shell, and configurable router.",
   "type": "commonjs",
@@ -10,9 +10,13 @@
   "scripts": {
     "proxy": "node services/backend/claude_code_dashscope_proxy.js",
     "build:launcher": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\build-desktop-launcher.ps1",
+    "build:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\build-release-installer.ps1",
     "install:shortcut": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\install-desktop-shortcut.ps1",
     "install:cc": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\install-cc-launcher.ps1",
-    "package:release": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\package-release.ps1"
+    "install:ecc": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\install-everything-claude-code.ps1",
+    "package:release": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\package-release.ps1",
+    "test:router": "node --test qa/router/custom-router.test.cjs",
+    "test:release-smoke": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\qa\\windows-release\\package-release-smoke.ps1"
   },
   "dependencies": {
     "undici": "^7.16.0"
