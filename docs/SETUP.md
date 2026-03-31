@@ -4,9 +4,9 @@
 
 - `python3`
 - `node >= 20`
-- `claude` (install separately and complete login before using the console)
-- `ccr` (install separately; this repo assumes it is already on `PATH`)
-- `PowerShell`（Windows 10/11 默认自带，推荐 PowerShell 7）
+- `claude`
+- `ccr`
+- `PowerShell`
 
 ## Python setup
 
@@ -15,7 +15,7 @@ py -3 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-`requirements.txt` also includes `Pillow`, which the desktop build uses to generate the app icon.
+`requirements.txt` also includes `Pillow`, which the desktop build uses to generate the launcher icon.
 
 ## Node setup
 
@@ -29,13 +29,18 @@ npm install
 Copy-Item .env.example .env
 ```
 
-Fill in only the providers you want to use. `DASHSCOPE_CODINGPLAN_API_KEY` remains the compatibility env name for the default Coding Plan chain, which now points to the MiniMax Anthropic-compatible upstream by default. `AICODELINK_OPUS46_API_KEY` is optional.
+The public setup now uses provider-generic environment names:
 
-If you enable the Opus provider, also set `CLAUDE_OPUS_PROXY_UPSTREAM`. The public example no longer hardcodes a private upstream URL.
+- `CODING_COMPATIBLE_API_KEY`
+- `CODING_COMPATIBLE_UPSTREAM`
+- `ANTHROPIC_THINKING_API_KEY`
+- `ANTHROPIC_THINKING_UPSTREAM`
 
-The app also exposes a local settings dialog that writes these values into `.env` for you, including the optional default model route. After saving, restart the app so the router and proxy pick up the updated credentials.
+Older alias names are still mirrored into `.env` for backward compatibility with existing scripts and local installs.
 
-`sync-router.ps1` / `sync-router.sh` now also mirrors the generated router config into `~/.claude-code-router/config.json`. When you explicitly choose a default route, the same route can also be mirrored into Claude Code's settings so `ccr` 2.x and recent Claude Code builds stay aligned.
+The local Settings dialog can update these values for you. After saving, restart the app so the router and proxy pick up the new credentials and upstreams.
+
+`sync-router.ps1` and `sync-router.sh` also mirror the generated router config into `~/.claude-code-router/config.json`. When a default route is selected, the same route can also be mirrored into Claude Code settings so `ccr` and recent Claude Code builds stay aligned.
 
 ## Run on Windows
 
@@ -43,23 +48,13 @@ The app also exposes a local settings dialog that writes these values into `.env
 powershell -ExecutionPolicy Bypass -File .\scripts\open-claude-code.ps1
 ```
 
-On Windows, the first launch now also builds `apps\desktop-windows\bin\Claude Code.app.exe`, creates or repairs the desktop shortcut `Claude Code.app.lnk`, installs `cc.cmd` into `~/.local/bin`, and opens Claude Code in a standalone app window instead of a normal browser tab.
+On first launch, the app flow also:
 
-Manual installers:
+- builds `apps\desktop-windows\bin\Claude Code.app.exe`
+- creates or repairs `Claude Code.app.lnk`
+- installs `cc.cmd` into `~/.local/bin`
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\install-desktop-shortcut.ps1
-powershell -ExecutionPolicy Bypass -File .\scripts\install-cc-launcher.ps1
-```
-
-Quick model switching can stay in CLI, and the same default route can also be changed from the app settings dialog:
-
-```powershell
-cc switch --list
-cc switch MiniMax-M2.7-highspeed
-```
-
-也可以分开启动：
+Manual launch commands:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\start-claude-code-router.ps1
@@ -67,9 +62,16 @@ powershell -ExecutionPolicy Bypass -File .\scripts\start-claude-code-dashscope-p
 powershell -ExecutionPolicy Bypass -File .\scripts\run-claude-console.ps1
 ```
 
+Quick model switching can stay in CLI:
+
+```powershell
+cc switch --list
+cc switch compatible-coding,MiniMax-M2.5
+```
+
 ## GitHub publishing checklist
 
-- Run a secrets/path scan before first push
-- Confirm `.env` is not tracked
-- Confirm `config/router/config.example.json` has no personal paths
-- Confirm no runtime cache or uploads are tracked
+- confirm `.env` is not tracked
+- confirm `config/router/config.example.json` has no personal paths
+- confirm runtime caches and uploads are not tracked
+- run the Windows release smoke checks before tagging

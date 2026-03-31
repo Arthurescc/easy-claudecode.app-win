@@ -1207,6 +1207,39 @@
             margin-top: -4px;
         }
 
+        .settings-provider-fields {
+            display: contents;
+        }
+
+        .settings-provider-group {
+            grid-column: 1 / -1;
+            display: grid;
+            gap: 10px;
+            margin-top: 2px;
+            padding-top: 8px;
+            border-top: 1px dashed var(--line);
+        }
+
+        .settings-provider-group:first-child {
+            margin-top: 0;
+            padding-top: 0;
+            border-top: 0;
+        }
+
+        .settings-provider-name {
+            margin: 0;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .settings-provider-description {
+            margin: -2px 0 2px;
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
         .settings-help {
             margin-top: 4px;
             font-size: 12px;
@@ -1445,22 +1478,7 @@
                         <select class="overlay-input" id="settings-default-route"></select>
                     </label>
                     <div class="settings-help span-2" id="settings-default-route-help"></div>
-                    <label class="overlay-field span-2">
-                        <span id="settings-dashscope-key-label">DashScope Coding Plan API Key</span>
-                        <input class="overlay-input" id="settings-dashscope-key" type="password" autocomplete="off" />
-                    </label>
-                    <label class="overlay-field span-2">
-                        <span id="settings-opus-key-label">Opus 4.6 Thinking API Key</span>
-                        <input class="overlay-input" id="settings-opus-key" type="password" autocomplete="off" />
-                    </label>
-                    <label class="overlay-field span-2">
-                        <span id="settings-dashscope-upstream-label">DashScope 上游地址</span>
-                        <input class="overlay-input" id="settings-dashscope-upstream" type="text" autocomplete="off" />
-                    </label>
-                    <label class="overlay-field span-2">
-                        <span id="settings-opus-upstream-label">Opus 上游地址</span>
-                        <input class="overlay-input" id="settings-opus-upstream" type="text" autocomplete="off" />
-                    </label>
+                    <div class="settings-provider-fields span-2" id="settings-provider-fields"></div>
                     <label class="overlay-field">
                         <span id="settings-router-health-label">Router 健康检查</span>
                         <input class="overlay-input" id="settings-router-health" type="text" autocomplete="off" />
@@ -1570,10 +1588,6 @@
                 settings_default_route: '默认模型路由',
                 settings_default_route_help: '留空表示不预设默认模型，用户可以继续用 cc switch 或 Claude Code 终端自行切换。',
                 settings_default_route_empty: '不预设默认模型（交给用户自行配置）',
-                settings_dashscope_key: 'DashScope Coding Plan API Key',
-                settings_opus_key: 'Opus 4.6 Thinking API Key',
-                settings_dashscope_upstream: 'DashScope 上游地址',
-                settings_opus_upstream: 'Opus 上游地址',
                 settings_router_health: 'Router 健康检查',
                 settings_proxy_health: 'Proxy 健康检查',
                 save_settings: '保存设置',
@@ -1753,10 +1767,6 @@
                 settings_default_route: 'Default model route',
                 settings_default_route_help: 'Leave this empty to avoid forcing a default model. Users can keep using cc switch or the Claude Code terminal to choose their own route.',
                 settings_default_route_empty: 'No preset default route (let users choose)',
-                settings_dashscope_key: 'DashScope Coding Plan API Key',
-                settings_opus_key: 'Opus 4.6 Thinking API Key',
-                settings_dashscope_upstream: 'DashScope upstream',
-                settings_opus_upstream: 'Opus upstream',
                 settings_router_health: 'Router health URL',
                 settings_proxy_health: 'Proxy health URL',
                 save_settings: 'Save settings',
@@ -1977,6 +1987,7 @@
             locale: window.localStorage.getItem(LOCALE_STORAGE_KEY) || 'zh-CN',
             mode: 'auto',
             availableModes: [],
+            modelCatalog: [],
             agentMode: 'auto',
             availableAgentModes: [],
             permissionMode: 'default',
@@ -2018,6 +2029,7 @@
             sessionLoadController: null,
             settingsBusy: false,
             settingsInstallers: {},
+            providerSettings: [],
             settingsRouteOptions: [],
             eccInstallBusy: false,
         };
@@ -2088,9 +2100,10 @@
                 `<option value="">${escapeHtml(t('settings_default_route_empty'))}</option>`,
                 ...routeOptions.map((item) => {
                     const routeId = String(item?.id || '').trim();
-                    const provider = String(item?.provider || '').trim();
-                    const model = String(item?.model || '').trim();
-                    const label = provider && model ? `${provider},${model}` : routeId;
+                    const label = String(item?.label || '').trim()
+                        || [String(item?.providerLabel || '').trim(), String(item?.modelLabel || '').trim()].filter(Boolean).join(' · ')
+                        || [String(item?.provider || '').trim(), String(item?.model || '').trim()].filter(Boolean).join(',')
+                        || routeId;
                     return `<option value="${escapeHtml(routeId)}">${escapeHtml(label)}</option>`;
                 }),
             ];
@@ -2099,6 +2112,85 @@
             if (select.value !== String(selectedRoute || '').trim()) {
                 select.value = '';
             }
+        }
+
+        function normalizeProviderSettingsPayload(providers, values = {}) {
+            const source = Array.isArray(providers) ? providers : [];
+            return source.map((provider) => {
+                const fields = Array.isArray(provider?.fields) ? provider.fields.map((field) => {
+                    const env = String(field?.env || '').trim();
+                    if (!env) return null;
+                    const rawType = String(field?.type || 'text').trim().toLowerCase();
+                    const type = ['password', 'text', 'url', 'email', 'number'].includes(rawType) ? rawType : 'text';
+                    const fallbackValue = values && typeof values === 'object' ? values[env] : '';
+                    return {
+                        env,
+                        label: String(field?.label || env).trim(),
+                        type,
+                        placeholder: String(field?.placeholder || '').trim(),
+                        value: String(field?.value ?? fallbackValue ?? '').trim(),
+                    };
+                }).filter(Boolean) : [];
+                return {
+                    id: String(provider?.id || '').trim(),
+                    displayName: String(provider?.displayName || '').trim(),
+                    description: String(provider?.description || '').trim(),
+                    fields,
+                };
+            }).filter((provider) => provider.id || provider.fields.length);
+        }
+
+        function renderProviderSettingsFields() {
+            const container = document.getElementById('settings-provider-fields');
+            if (!container) return;
+            const providers = Array.isArray(appState.providerSettings) ? appState.providerSettings : [];
+            container.innerHTML = providers.map((provider, providerIndex) => {
+                const title = String(provider?.displayName || provider?.id || '').trim();
+                const description = String(provider?.description || '').trim();
+                const fields = Array.isArray(provider?.fields) ? provider.fields : [];
+                const fieldsHtml = fields.map((field, fieldIndex) => {
+                    const inputId = `settings-provider-field-${providerIndex}-${fieldIndex}`;
+                    return `
+                        <label class="overlay-field span-2">
+                            <span>${escapeHtml(field.label || field.env || '')}</span>
+                            <input
+                                class="overlay-input"
+                                id="${escapeHtml(inputId)}"
+                                data-settings-env="${escapeHtml(field.env || '')}"
+                                type="${escapeHtml(field.type || 'text')}"
+                                autocomplete="off"
+                                placeholder="${escapeHtml(field.placeholder || '')}"
+                                value="${escapeHtml(field.value || '')}"
+                            />
+                        </label>
+                    `;
+                }).join('');
+                return `
+                    <section class="settings-provider-group">
+                        ${title ? `<p class="settings-provider-name">${escapeHtml(title)}</p>` : ''}
+                        ${description ? `<p class="settings-provider-description">${escapeHtml(description)}</p>` : ''}
+                        ${fieldsHtml}
+                    </section>
+                `;
+            }).join('');
+        }
+
+        function collectProviderSettingsValues() {
+            const container = document.getElementById('settings-provider-fields');
+            const values = {};
+            if (!container) return values;
+            container.querySelectorAll('[data-settings-env]').forEach((input) => {
+                const env = String(input?.dataset?.settingsEnv || '').trim();
+                if (!env) return;
+                values[env] = String(input?.value || '').trim();
+            });
+            return values;
+        }
+
+        function resolveModelCatalog(modelCatalog, modes) {
+            const catalog = Array.isArray(modelCatalog) ? modelCatalog : [];
+            if (catalog.length) return catalog;
+            return Array.isArray(modes) ? modes : [];
         }
 
         function applyLocale() {
@@ -2122,10 +2214,6 @@
                 ['settings-dialog-title', 'settings_title'],
                 ['settings-locale-label', 'settings_locale'],
                 ['settings-default-route-label', 'settings_default_route'],
-                ['settings-dashscope-key-label', 'settings_dashscope_key'],
-                ['settings-opus-key-label', 'settings_opus_key'],
-                ['settings-dashscope-upstream-label', 'settings_dashscope_upstream'],
-                ['settings-opus-upstream-label', 'settings_opus_upstream'],
                 ['settings-router-health-label', 'settings_router_health'],
                 ['settings-proxy-health-label', 'settings_proxy_health'],
                 ['sidebar-dialog-cancel', 'cancel'],
@@ -2243,7 +2331,10 @@
         }
 
         function selectedModeInfo() {
-            return appState.availableModes.find((item) => item.id === appState.mode) || appState.availableModes[0] || null;
+            const options = Array.isArray(appState.modelCatalog) && appState.modelCatalog.length
+                ? appState.modelCatalog
+                : appState.availableModes;
+            return options.find((item) => item.id === appState.mode) || options[0] || null;
         }
 
         function selectedAgentModeInfo() {
@@ -2285,6 +2376,7 @@
             const libraryCounts = JSON.stringify(payload?.library?.counts || {});
             const folderSignature = JSON.stringify(payload?.folders || []);
             const modeSignature = JSON.stringify(payload?.modes || []);
+            const modelCatalogSignature = JSON.stringify(payload?.modelCatalog || []);
             const agentModeSignature = JSON.stringify(payload?.agentModes || []);
             const healthSignature = JSON.stringify(payload?.health || {});
             const dispatch = payload?.openclawDispatch || {};
@@ -2296,7 +2388,7 @@
                     ? dispatch.history.slice(-3).map((item) => [item?.dispatchId || '', item?.finishedAt || '', item?.ok ? '1' : '0'].join('~'))
                     : [],
             });
-            return [sessionSignature, libraryCounts, folderSignature, dispatchSignature, modeSignature, agentModeSignature, healthSignature].join('##');
+            return [sessionSignature, libraryCounts, folderSignature, dispatchSignature, modeSignature, modelCatalogSignature, agentModeSignature, healthSignature].join('##');
         }
 
         function restoreFolderCollapseState() {
@@ -2355,6 +2447,7 @@
             appState.library = payload.library || cloneEmptyLibrary();
             appState.folderRegistry = Array.isArray(payload.folders) ? payload.folders.map((item) => normalizeFolderName(item)).filter(Boolean) : [];
             appState.availableModes = payload.modes || appState.availableModes;
+            appState.modelCatalog = resolveModelCatalog(payload.modelCatalog, payload.modes);
             appState.availableAgentModes = payload.agentModes || appState.availableAgentModes;
             appState.settingsInstallers = {
                 ...appState.settingsInstallers,
@@ -2793,17 +2886,24 @@
 
         function renderModelOptions() {
             const select = document.getElementById('model-route');
-            const options = Array.isArray(appState.availableModes) && appState.availableModes.length
-                ? appState.availableModes
-                : [{ id: 'auto', label: 'Auto', description: modeMeta('auto')?.description || '' }];
-            const defaultRoute = String(appState.bootstrap?.routerConfig?.default || '').trim();
-            const defaultRouteModel = defaultRoute.includes(',') ? defaultRoute.split(',').slice(1).join(',') : defaultRoute;
-            select.innerHTML = options.map((item) => `
-                <option value="${escapeHtml(item.id)}">${escapeHtml(item.id === 'auto'
-                    ? (defaultRouteModel || modeMeta(item.id)?.label || item.label || item.id)
-                    : (modeMeta(item.id)?.label || item.label || item.id))}</option>
+            const options = resolveModelCatalog(appState.modelCatalog, appState.availableModes);
+            const safeOptions = options.length ? options : [{ id: 'auto', label: 'Auto', modelLabel: 'Auto', providerLabel: 'Auto' }];
+            const optionLabel = (item) => {
+                const explicit = String(item?.label || '').trim();
+                if (explicit) return explicit;
+                const modelLabel = String(item?.modelLabel || '').trim();
+                const providerLabel = String(item?.providerLabel || '').trim();
+                if (providerLabel && modelLabel) return `${providerLabel} · ${modelLabel}`;
+                return modelLabel || providerLabel || String(item?.id || '').trim() || 'Auto';
+            };
+            select.innerHTML = safeOptions.map((item) => `
+                <option value="${escapeHtml(item.id)}">${escapeHtml(optionLabel(item))}</option>
             `).join('');
-            select.value = options.some((item) => item.id === appState.mode) ? appState.mode : 'auto';
+            const nextMode = safeOptions.some((item) => item.id === appState.mode)
+                ? appState.mode
+                : (safeOptions.find((item) => item.id === 'auto')?.id || safeOptions[0]?.id || 'auto');
+            appState.mode = nextMode;
+            select.value = nextMode;
         }
 
         function renderAgentModeOptions() {
@@ -3551,23 +3651,30 @@
             const payload = await apiJson('/claude-console/settings');
             const values = payload.values || {};
             appState.locale = resolveLocale(values.CLAUDE_CONSOLE_LOCALE || appState.locale);
-            document.getElementById('settings-dashscope-key').value = values.DASHSCOPE_CODINGPLAN_API_KEY || '';
-            document.getElementById('settings-opus-key').value = values.AICODELINK_OPUS46_API_KEY || '';
-            document.getElementById('settings-dashscope-upstream').value = values.CLAUDE_DASHSCOPE_PROXY_UPSTREAM || '';
-            document.getElementById('settings-opus-upstream').value = values.CLAUDE_OPUS_PROXY_UPSTREAM || '';
+            appState.providerSettings = normalizeProviderSettingsPayload(payload.providers, values);
+            appState.modelCatalog = resolveModelCatalog(payload.modelCatalog, payload.modes);
+            renderProviderSettingsFields();
             document.getElementById('settings-router-health').value = values.CLAUDE_ROUTER_HEALTH_URL || '';
             document.getElementById('settings-proxy-health').value = values.CLAUDE_PROXY_HEALTH_URL || '';
             appState.settingsInstallers = payload.installers || {};
             appState.settingsRouteOptions = Array.isArray(payload.routeOptions) ? payload.routeOptions : [];
             renderLocaleOptions();
             renderSettingsRouteOptions(values.EASY_CLAUDECODE_DEFAULT_ROUTE || '');
+            renderModelOptions();
             document.getElementById('settings-locale').value = currentLocale();
             document.getElementById('settings-dialog-env-path').textContent = payload.envFile
                 ? t('env_file_label', { path: payload.envFile })
                 : '';
             renderEverythingClaudeCodeSurface(payload.installers?.everythingClaudeCode || null);
             setSettingsStatus(payload.restartRequired ? t('settings_restart_required') : t('current_config_loaded'));
-            window.setTimeout(() => document.getElementById('settings-dashscope-key').focus(), 30);
+            window.setTimeout(() => {
+                const providerInput = document.querySelector('#settings-provider-fields [data-settings-env]');
+                if (providerInput && typeof providerInput.focus === 'function') {
+                    providerInput.focus();
+                    return;
+                }
+                document.getElementById('settings-router-health')?.focus();
+            }, 30);
         }
 
         async function submitSettingsDialog() {
@@ -3580,15 +3687,13 @@
             setSettingsStatus(t('saving_settings'));
             try {
                 const nextLocale = resolveLocale(document.getElementById('settings-locale').value || appState.locale);
+                const providerValues = collectProviderSettingsValues();
                 const payload = await apiJson('/claude-console/settings', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         values: {
-                            DASHSCOPE_CODINGPLAN_API_KEY: document.getElementById('settings-dashscope-key').value.trim(),
-                            AICODELINK_OPUS46_API_KEY: document.getElementById('settings-opus-key').value.trim(),
-                            CLAUDE_DASHSCOPE_PROXY_UPSTREAM: document.getElementById('settings-dashscope-upstream').value.trim(),
-                            CLAUDE_OPUS_PROXY_UPSTREAM: document.getElementById('settings-opus-upstream').value.trim(),
+                            ...providerValues,
                             EASY_CLAUDECODE_DEFAULT_ROUTE: document.getElementById('settings-default-route').value.trim(),
                             CLAUDE_ROUTER_HEALTH_URL: document.getElementById('settings-router-health').value.trim(),
                             CLAUDE_PROXY_HEALTH_URL: document.getElementById('settings-proxy-health').value.trim(),
@@ -3599,7 +3704,10 @@
                 persistLocale(nextLocale);
                 appState.settingsInstallers = payload.installers || appState.settingsInstallers;
                 appState.settingsRouteOptions = Array.isArray(payload.routeOptions) ? payload.routeOptions : appState.settingsRouteOptions;
+                appState.providerSettings = normalizeProviderSettingsPayload(payload.providers, payload.values || {});
+                appState.modelCatalog = resolveModelCatalog(payload.modelCatalog, payload.modes || appState.availableModes);
                 applyLocale();
+                renderProviderSettingsFields();
                 renderSettingsRouteOptions(payload.values?.EASY_CLAUDECODE_DEFAULT_ROUTE || '');
                 renderEverythingClaudeCodeSurface(payload.installers?.everythingClaudeCode || null);
                 setSettingsStatus(t('settings_saved'));

@@ -65,32 +65,32 @@ const CODING_PATTERNS = [
 const EXPLICIT_ROUTES = [
   {
     pattern: /\[route:opus46\]/i,
-    target: "aicodelink-opus,claude-opus-4-6-thinking"
+    target: "anthropic-thinking,claude-opus-4-6-thinking"
   },
-  { pattern: /\[route:glm5\]/i, target: "dashscope-codingplan,glm-5" },
-  { pattern: /\[route:glm47\]/i, target: "dashscope-codingplan,glm-4.7" },
+  { pattern: /\[route:glm5\]/i, target: "compatible-coding,glm-5" },
+  { pattern: /\[route:glm47\]/i, target: "compatible-coding,glm-4.7" },
   {
     pattern: /\[route:qwenmax\]/i,
-    target: "dashscope-codingplan,qwen3-max-2026-01-23"
+    target: "compatible-coding,qwen3-max-2026-01-23"
   },
-  { pattern: /\[route:kimi\]/i, target: "dashscope-codingplan,kimi-k2.5" },
+  { pattern: /\[route:kimi\]/i, target: "compatible-coding,kimi-k2.5" },
   {
     pattern: /\[route:qwen35\]/i,
-    target: "dashscope-codingplan,qwen3.5-plus"
+    target: "compatible-coding,qwen3.5-plus"
   },
   {
     pattern: /\[route:qwencoder\]/i,
-    target: "dashscope-codingplan,qwen3-coder-plus"
+    target: "compatible-coding,qwen3-coder-plus"
   },
   {
     pattern: /\[route:minimax\]/i,
-    target: "dashscope-codingplan,MiniMax-M2.7-highspeed"
+    target: "compatible-coding,MiniMax-M2.7-highspeed"
   }
 ];
 
 const ROLE_ROUTE_PATTERNS = [
   {
-    target: "dashscope-codingplan,glm-5",
+    target: "compatible-coding,MiniMax-M2.5",
     normalizedNeedles: [
       "你是产品经理",
       "产品经理角色",
@@ -115,7 +115,7 @@ const ROLE_ROUTE_PATTERNS = [
     ]
   },
   {
-    target: "dashscope-codingplan,MiniMax-M2.7-highspeed",
+    target: "compatible-coding,MiniMax-M2.5",
     normalizedNeedles: [
       "你是前端工程师",
       "前端工程师角色",
@@ -134,7 +134,7 @@ const ROLE_ROUTE_PATTERNS = [
     ]
   },
   {
-    target: "dashscope-codingplan,qwen3-max-2026-01-23",
+    target: "compatible-coding,MiniMax-M2.5",
     normalizedNeedles: [
       "你是qa工程师",
       "qa工程师角色",
@@ -154,7 +154,7 @@ const ROLE_ROUTE_PATTERNS = [
     ]
   },
   {
-    target: "dashscope-codingplan,glm-5",
+    target: "compatible-coding,MiniMax-M2.5",
     normalizedNeedles: [
       "completionsupervisor",
       "你是完成度监督代理",
@@ -167,7 +167,7 @@ const ROLE_ROUTE_PATTERNS = [
     ]
   },
   {
-    target: "dashscope-codingplan,kimi-k2.5",
+    target: "compatible-coding,MiniMax-M2.5",
     normalizedNeedles: [
       "你是uiux设计师",
       "uiux设计师角色",
@@ -258,6 +258,24 @@ function stripRouteMarkersFromMessages(messages) {
   }
 }
 
+function extractGenericRouteId(text) {
+  const match = String(text || "").match(/\[route:([^\]\r\n]+)\]/i);
+  if (!match) return "";
+  const routeId = String(match[1] || "").trim();
+  return routeId.includes(",") ? routeId : "";
+}
+
+function markRouteSelection(req, routeId, selection, reason = "") {
+  if (!req?.body || typeof req.body !== "object") {
+    return;
+  }
+  req.body.openclawRoute = {
+    selection,
+    routeId,
+    ...(reason ? { reason } : {})
+  };
+}
+
 function normalizeRoutingText(text) {
   return String(text || "")
     .toLowerCase()
@@ -310,9 +328,17 @@ module.exports = async function router(req) {
 
   if (!allText && !userText) return null;
 
+  const genericExplicitRoute = extractGenericRouteId(userText) || extractGenericRouteId(allText);
+  if (genericExplicitRoute) {
+    stripRouteMarkersFromMessages(req?.body?.messages);
+    markRouteSelection(req, genericExplicitRoute, "explicit");
+    return genericExplicitRoute;
+  }
+
   for (const route of EXPLICIT_ROUTES) {
     if (route.pattern.test(userText) || route.pattern.test(allText)) {
       stripRouteMarkersFromMessages(req?.body?.messages);
+      markRouteSelection(req, route.target, "explicit");
       return route.target;
     }
   }
@@ -323,24 +349,29 @@ module.exports = async function router(req) {
       normalizedRoleScopeText.includes(normalizeRoutingText(needle))
     );
     if (hasRegexMatch || hasNormalizedMatch) {
+      markRouteSelection(req, route.target, "auto", "role-pattern");
       return route.target;
     }
   }
 
   if (IMAGE_PATTERNS.some((pattern) => pattern.test(userText))) {
-    return "dashscope-codingplan,kimi-k2.5";
+    markRouteSelection(req, "compatible-coding,MiniMax-M2.5", "auto", "image-pattern");
+    return "compatible-coding,MiniMax-M2.5";
   }
 
   if (REVIEW_PATTERNS.some((pattern) => pattern.test(userText))) {
-    return "dashscope-codingplan,qwen3-max-2026-01-23";
+    markRouteSelection(req, "compatible-coding,MiniMax-M2.5", "auto", "review-pattern");
+    return "compatible-coding,MiniMax-M2.5";
   }
 
   if (CODING_PATTERNS.some((pattern) => pattern.test(userText))) {
-    return "dashscope-codingplan,MiniMax-M2.7-highspeed";
+    markRouteSelection(req, "compatible-coding,MiniMax-M2.5", "auto", "coding-pattern");
+    return "compatible-coding,MiniMax-M2.5";
   }
 
   if (DOCUMENT_PATTERNS.some((pattern) => pattern.test(userText))) {
-    return "dashscope-codingplan,qwen3-max-2026-01-23";
+    markRouteSelection(req, "compatible-coding,MiniMax-M2.5", "auto", "document-pattern");
+    return "compatible-coding,MiniMax-M2.5";
   }
 
   return null;

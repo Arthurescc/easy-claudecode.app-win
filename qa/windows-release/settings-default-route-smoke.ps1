@@ -29,15 +29,15 @@ assert settings.status_code == 200, settings.status_code
 assert "EASY_CLAUDECODE_DEFAULT_ROUTE" in payload["values"], payload["values"]
 assert payload.get("routeOptions"), payload
 
-chosen_route = "dashscope-codingplan,MiniMax-M2.7-highspeed"
+chosen_route = "compatible-coding,MiniMax-M2.5"
 response = client.post(
     "/claude-console/settings",
     json={
         "values": {
-            "DASHSCOPE_CODINGPLAN_API_KEY": "",
-            "AICODELINK_OPUS46_API_KEY": "",
-            "CLAUDE_DASHSCOPE_PROXY_UPSTREAM": "https://api.minimaxi.com/anthropic/v1/messages",
-            "CLAUDE_OPUS_PROXY_UPSTREAM": "https://aicodelink.shop/v1/messages",
+            "CODING_COMPATIBLE_API_KEY": "",
+            "ANTHROPIC_THINKING_API_KEY": "",
+            "CODING_COMPATIBLE_UPSTREAM": "https://api.minimaxi.com/anthropic/v1/messages",
+            "ANTHROPIC_THINKING_UPSTREAM": "https://aicodelink.shop/v1/messages",
             "CLAUDE_ROUTER_HEALTH_URL": "http://127.0.0.1:3456/health",
             "CLAUDE_PROXY_HEALTH_URL": "http://127.0.0.1:3460/health",
             "CLAUDE_CONSOLE_LOCALE": "zh-CN",
@@ -50,3 +50,6 @@ assert response.status_code == 200, response.status_code
 assert updated["values"]["EASY_CLAUDECODE_DEFAULT_ROUTE"] == chosen_route, updated
 print(chosen_route)
 '@ | & $PythonBin - $RepoRoot
+if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
+}

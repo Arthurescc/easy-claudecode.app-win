@@ -46,6 +46,7 @@ from claude_console_utils import (
 
 BACKEND_DIR = Path(__file__).resolve().parent
 REPO_ROOT = BACKEND_DIR.parent.parent
+PROVIDER_REGISTRY_FILE = os.path.join(str(REPO_ROOT), "config", "providers", "registry.json")
 
 
 def _env_flag(name: str, default: bool = False) -> bool:
@@ -386,20 +387,26 @@ CLAUDE_CHAT_COMPLETION_GATE_RE = re.compile(r"<CLAUDE_COMPLETION_GATE>\s*(PASS|F
 CLAUDE_CHAT_SELFCHECK_RE = re.compile(r"<CLAUDE_SELFCHECK>\s*(PASS|FAIL|BLOCKED)\s*</CLAUDE_SELFCHECK>", re.IGNORECASE)
 CLAUDE_CHAT_MAX_AUTO_TURNS = int(os.getenv("CLAUDE_CHAT_MAX_AUTO_TURNS", "24"))
 EDITABLE_SETTINGS_FIELDS = (
-    "DASHSCOPE_CODINGPLAN_API_KEY",
-    "AICODELINK_OPUS46_API_KEY",
-    "CLAUDE_DASHSCOPE_PROXY_UPSTREAM",
-    "CLAUDE_OPUS_PROXY_UPSTREAM",
+    "CODING_COMPATIBLE_API_KEY",
+    "CODING_COMPATIBLE_UPSTREAM",
+    "ANTHROPIC_THINKING_API_KEY",
+    "ANTHROPIC_THINKING_UPSTREAM",
     "EASY_CLAUDECODE_DEFAULT_ROUTE",
     "CLAUDE_ROUTER_HEALTH_URL",
     "CLAUDE_PROXY_HEALTH_URL",
     "CLAUDE_CONSOLE_LOCALE",
 )
+EDITABLE_SETTINGS_ALIASES = {
+    "CODING_COMPATIBLE_API_KEY": ("DASHSCOPE_CODINGPLAN_API_KEY",),
+    "CODING_COMPATIBLE_UPSTREAM": ("CLAUDE_DASHSCOPE_PROXY_UPSTREAM",),
+    "ANTHROPIC_THINKING_API_KEY": ("AICODELINK_OPUS46_API_KEY",),
+    "ANTHROPIC_THINKING_UPSTREAM": ("CLAUDE_OPUS_PROXY_UPSTREAM",),
+}
 EDITABLE_SETTINGS_DEFAULTS = {
-    "DASHSCOPE_CODINGPLAN_API_KEY": "",
-    "AICODELINK_OPUS46_API_KEY": "",
-    "CLAUDE_DASHSCOPE_PROXY_UPSTREAM": "https://api.minimaxi.com/anthropic/v1/messages",
-    "CLAUDE_OPUS_PROXY_UPSTREAM": "https://aicodelink.shop/v1/messages",
+    "CODING_COMPATIBLE_API_KEY": "",
+    "CODING_COMPATIBLE_UPSTREAM": "https://api.minimaxi.com/anthropic/v1/messages",
+    "ANTHROPIC_THINKING_API_KEY": "",
+    "ANTHROPIC_THINKING_UPSTREAM": "https://aicodelink.shop/v1/messages",
     "EASY_CLAUDECODE_DEFAULT_ROUTE": "",
     "CLAUDE_ROUTER_HEALTH_URL": "http://127.0.0.1:3456/health",
     "CLAUDE_PROXY_HEALTH_URL": "http://127.0.0.1:3460/health",
@@ -512,22 +519,46 @@ def _format_env_value(value: str) -> str:
 def _load_editable_settings() -> dict[str, str]:
     payload = {key: str(EDITABLE_SETTINGS_DEFAULTS.get(key, "")) for key in EDITABLE_SETTINGS_FIELDS}
     env_path = Path(EASY_CLAUDECODE_ENV_FILE)
+    raw_env_values: dict[str, str] = {}
     if env_path.exists():
         for line in env_path.read_text(encoding="utf-8").splitlines():
             parsed = _parse_env_assignment(line)
             if not parsed:
                 continue
             key, raw_value = parsed
+            normalized = _normalize_env_value(raw_value)
+            raw_env_values[key] = normalized
             if key in payload:
-                payload[key] = _normalize_env_value(raw_value)
+                payload[key] = normalized
+    for key, aliases in EDITABLE_SETTINGS_ALIASES.items():
+        if str(payload.get(key, "")).strip():
+            continue
+        for alias in aliases:
+            alias_value = str(raw_env_values.get(alias, "")).strip()
+            if alias_value:
+                payload[key] = alias_value
+                break
     for key in EDITABLE_SETTINGS_FIELDS:
         payload[key] = str(os.getenv(key, payload.get(key, "")) or "")
+        if payload[key].strip():
+            continue
+        for alias in EDITABLE_SETTINGS_ALIASES.get(key, ()):
+            alias_value = str(os.getenv(alias, raw_env_values.get(alias, "")) or "").strip()
+            if alias_value:
+                payload[key] = alias_value
+                break
     return payload
 
 
 def _save_editable_settings(updates: dict[str, str]) -> None:
     env_path = Path(EASY_CLAUDECODE_ENV_FILE)
     env_path.parent.mkdir(parents=True, exist_ok=True)
+    expanded_updates = {key: str(value or "") for key, value in updates.items()}
+    for key, aliases in EDITABLE_SETTINGS_ALIASES.items():
+        if key not in expanded_updates:
+            continue
+        for alias in aliases:
+            expanded_updates[alias] = expanded_updates[key]
     existing_lines = env_path.read_text(encoding="utf-8").splitlines(keepends=True) if env_path.exists() else []
     next_lines: list[str] = []
     touched: set[str] = set()
@@ -537,18 +568,18 @@ def _save_editable_settings(updates: dict[str, str]) -> None:
             next_lines.append(line)
             continue
         key, _raw_value = parsed
-        if key in updates:
-            next_lines.append(f"{key}={_format_env_value(updates[key])}\n")
+        if key in expanded_updates:
+            next_lines.append(f"{key}={_format_env_value(expanded_updates[key])}\n")
             touched.add(key)
         else:
             next_lines.append(line)
     if next_lines and not next_lines[-1].endswith("\n"):
         next_lines[-1] = next_lines[-1] + "\n"
-    for key in EDITABLE_SETTINGS_FIELDS:
-        if key in updates and key not in touched:
-            next_lines.append(f"{key}={_format_env_value(updates[key])}\n")
+    for key in [*EDITABLE_SETTINGS_FIELDS, *[alias for aliases in EDITABLE_SETTINGS_ALIASES.values() for alias in aliases]]:
+        if key in expanded_updates and key not in touched:
+            next_lines.append(f"{key}={_format_env_value(expanded_updates[key])}\n")
     env_path.write_text("".join(next_lines), encoding="utf-8")
-    for key, value in updates.items():
+    for key, value in expanded_updates.items():
         os.environ[key] = str(value or "")
 
 
@@ -749,6 +780,223 @@ def _read_json_file(path: str, fallback):
         return fallback
 
 
+def _provider_registry_payload() -> dict[str, object]:
+    return _read_json_file(PROVIDER_REGISTRY_FILE, {})
+
+
+def _provider_registry_entries() -> list[dict[str, object]]:
+    providers = _provider_registry_payload().get("providers")
+    if isinstance(providers, list):
+        return [item for item in providers if isinstance(item, dict)]
+    return []
+
+
+def _provider_registry_entry(provider_id: str) -> dict[str, object] | None:
+    normalized_provider_id = str(provider_id or "").strip()
+    if not normalized_provider_id:
+        return None
+    for entry in _provider_registry_entries():
+        if normalized_provider_id == str(entry.get("id") or "").strip():
+            return entry
+        for legacy_id in entry.get("legacyIds") or []:
+            if normalized_provider_id == str(legacy_id or "").strip():
+                return entry
+    return None
+
+
+def _provider_registry_id(provider_id: str) -> str:
+    entry = _provider_registry_entry(provider_id)
+    return str(entry.get("id") or provider_id or "").strip() if isinstance(entry, dict) else str(provider_id or "").strip()
+
+
+def _provider_registry_model_meta(model_name: str) -> dict[str, object]:
+    models = _provider_registry_payload().get("models")
+    if isinstance(models, dict):
+        entry = models.get(str(model_name or "").strip())
+        if isinstance(entry, dict):
+            return entry
+    return {}
+
+
+def _legacy_mode_aliases() -> dict[str, str]:
+    aliases = _provider_registry_payload().get("legacyModeAliases")
+    if isinstance(aliases, dict):
+        return {
+            str(key or "").strip(): str(value or "").strip()
+            for key, value in aliases.items()
+            if str(key or "").strip() and str(value or "").strip()
+        }
+    return {}
+
+
+def _provider_display_name(provider_id: str, upstream_url: str = "") -> str:
+    entry = _provider_registry_entry(provider_id)
+    if not isinstance(entry, dict):
+        return str(provider_id or "").strip()
+    upstream_lower = str(upstream_url or "").strip().lower()
+    for alias in entry.get("displayAliases") or []:
+        if not isinstance(alias, dict):
+            continue
+        needle = str(alias.get("contains") or "").strip().lower()
+        display_name = str(alias.get("displayName") or "").strip()
+        if needle and display_name and needle in upstream_lower:
+            return display_name
+    return str(entry.get("displayName") or provider_id or "").strip()
+
+
+def _route_config_payload() -> dict[str, object]:
+    candidates = [
+        CLAUDE_ROUTER_CONFIG_FILE,
+        os.path.join(SOURCE_ROOT, "config", "router", "config.example.json"),
+    ]
+    for candidate in candidates:
+        if not candidate or not os.path.exists(candidate):
+            continue
+        loaded = _read_json_file(candidate, {})
+        if isinstance(loaded, dict) and loaded:
+            return loaded
+    return {}
+
+
+def _resolve_config_env_reference(value: str, settings_values: dict[str, str]) -> str:
+    text = str(value or "").strip()
+    if not text.startswith("$"):
+        return text
+    env_name = text[1:]
+    if not env_name:
+        return ""
+    if env_name in settings_values and str(settings_values.get(env_name) or "").strip():
+        return str(settings_values.get(env_name) or "").strip()
+    for key, aliases in EDITABLE_SETTINGS_ALIASES.items():
+        if env_name == key:
+            return str(settings_values.get(key) or "").strip()
+        if env_name in aliases:
+            return str(settings_values.get(key) or os.getenv(env_name, "")) or ""
+    return str(os.getenv(env_name, "") or "").strip()
+
+
+def _split_route_id(route_id: str) -> tuple[str, str]:
+    text = str(route_id or "").strip()
+    if "," not in text:
+        return text, ""
+    provider, model = text.split(",", 1)
+    return provider.strip(), model.strip()
+
+
+def _route_catalog() -> list[dict[str, str]]:
+    config_payload = _route_config_payload()
+    settings_values = _load_editable_settings()
+    items: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for provider in _router_provider_entries(config_payload):
+        route_provider = str(provider.get("name") or "").strip()
+        if not route_provider:
+            continue
+        resolved_provider_id = _provider_registry_id(route_provider)
+        upstream_url = _resolve_config_env_reference(str(provider.get("api_base_url") or ""), settings_values)
+        provider_label = _provider_display_name(resolved_provider_id, upstream_url)
+        for model in provider.get("models") or []:
+            model_name = str(model or "").strip()
+            if not model_name:
+                continue
+            route_id = f"{route_provider},{model_name}"
+            if route_id in seen:
+                continue
+            seen.add(route_id)
+            model_meta = _provider_registry_model_meta(model_name)
+            model_label = str(model_meta.get("label") or model_name).strip()
+            items.append(
+                {
+                    "id": route_id,
+                    "routeId": route_id,
+                    "provider": route_provider,
+                    "providerId": resolved_provider_id,
+                    "providerLabel": provider_label,
+                    "model": model_name,
+                    "modelLabel": model_label,
+                    "vendor": str(model_meta.get("vendor") or "").strip(),
+                    "description": str(model_meta.get("description") or "").strip(),
+                    "label": f"{provider_label} · {model_label}",
+                }
+            )
+    return items
+
+
+def _match_route_id(route_id: str) -> str:
+    requested_route = str(route_id or "").strip()
+    if not requested_route:
+        return ""
+    requested_provider, requested_model = _split_route_id(requested_route)
+    requested_provider_id = _provider_registry_id(requested_provider)
+    for item in _route_catalog():
+        if requested_route == str(item.get("id") or "").strip():
+            return requested_route
+        current_provider, current_model = _split_route_id(str(item.get("id") or "").strip())
+        if current_model == requested_model and _provider_registry_id(current_provider) == requested_provider_id:
+            return str(item.get("id") or "").strip()
+    return ""
+
+
+def _route_options() -> list[dict[str, str]]:
+    return _route_catalog()
+
+
+def _model_catalog() -> list[dict[str, str]]:
+    items = [
+        {
+            "id": "auto",
+            "routeId": "",
+            "provider": "",
+            "providerId": "",
+            "providerLabel": "Auto",
+            "model": "auto",
+            "modelLabel": "Auto",
+            "vendor": "",
+            "description": "Automatically use the active routing policy for the task.",
+            "label": "Auto",
+            "kind": "auto",
+        }
+    ]
+    for route in _route_catalog():
+        items.append({**route, "kind": "route"})
+    return items
+
+
+def _provider_settings_payload() -> list[dict[str, object]]:
+    values = _load_editable_settings()
+    providers: list[dict[str, object]] = []
+    for entry in _provider_registry_entries():
+        fields = []
+        display_upstream = ""
+        for field in entry.get("settings") or []:
+            if not isinstance(field, dict):
+                continue
+            env_name = str(field.get("env") or "").strip()
+            if not env_name:
+                continue
+            field_value = str(values.get(env_name) or "").strip()
+            if not display_upstream and env_name.endswith("_UPSTREAM"):
+                display_upstream = field_value
+            fields.append(
+                {
+                    "env": env_name,
+                    "label": str(field.get("label") or env_name).strip(),
+                    "type": str(field.get("type") or "text").strip(),
+                    "placeholder": str(field.get("placeholder") or "").strip(),
+                    "value": field_value,
+                }
+            )
+        providers.append(
+            {
+                "id": str(entry.get("id") or "").strip(),
+                "displayName": _provider_display_name(str(entry.get("id") or "").strip(), display_upstream),
+                "description": str(entry.get("description") or "").strip(),
+                "fields": fields,
+            }
+        )
+    return providers
+
+
 def _router_section(router_config: dict) -> dict:
     section = router_config.get("Router")
     if isinstance(section, dict):
@@ -814,8 +1062,43 @@ def _read_tail(path: str, max_bytes: int = 12000) -> dict:
 
 
 def _normalize_claude_mode(raw_mode: str | None) -> str:
-    mode = (raw_mode or "auto").strip().lower()
-    return mode if mode in CLAUDE_MODE_CONFIG else "auto"
+    raw_text = str(raw_mode or "auto").strip()
+    if not raw_text:
+        return "auto"
+    if raw_text.lower() == "auto":
+        return "auto"
+    aliases = _legacy_mode_aliases()
+    if raw_text in aliases:
+        matched = _match_route_id(aliases[raw_text])
+        return matched or aliases[raw_text]
+    matched = _match_route_id(raw_text)
+    if matched:
+        return matched
+    lowered = raw_text.lower()
+    if lowered in aliases:
+        matched = _match_route_id(aliases[lowered])
+        return matched or aliases[lowered]
+    return "auto"
+
+
+def _selected_mode_info(raw_mode: str | None) -> dict[str, str]:
+    normalized = _normalize_claude_mode(raw_mode)
+    for item in _model_catalog():
+        if normalized == str(item.get("id") or "").strip():
+            return {str(key): str(value or "") for key, value in item.items()}
+    return {
+        "id": "auto",
+        "routeId": "",
+        "provider": "",
+        "providerId": "",
+        "providerLabel": "Auto",
+        "model": "auto",
+        "modelLabel": "Auto",
+        "vendor": "",
+        "description": "Automatically use the active routing policy for the task.",
+        "label": "Auto",
+        "kind": "auto",
+    }
 
 
 def _normalize_agent_mode(raw_mode: str | None) -> str:
@@ -824,7 +1107,11 @@ def _normalize_agent_mode(raw_mode: str | None) -> str:
 
 
 def _claude_route_tag(mode: str) -> str:
-    return str(CLAUDE_MODE_CONFIG.get(_normalize_claude_mode(mode), {}).get("tag") or "")
+    selected = _selected_mode_info(mode)
+    route_id = str(selected.get("routeId") or selected.get("id") or "").strip()
+    if not route_id or route_id == "auto":
+        return ""
+    return f"[route:{route_id}]"
 
 
 def _claude_allowed_dirs() -> list[str]:
@@ -893,7 +1180,8 @@ def _tmux_state() -> dict:
 
 
 def _is_opus46_team_lock(mode: str, agent_mode: str, prompt: str = "") -> bool:
-    return _normalize_claude_mode(mode) == "opus46" and _normalize_agent_mode(agent_mode) == "teams"
+    selected = _selected_mode_info(mode)
+    return str(selected.get("model") or "").strip() == "claude-opus-4-6-thinking" and _normalize_agent_mode(agent_mode) == "teams"
 
 
 def _resolve_agent_name(agent_mode: str, prompt: str = "", mode: str = "auto") -> str:
@@ -967,8 +1255,9 @@ def _prepare_claude_prompt(prompt: str, mode: str, agent_mode: str = "none") -> 
         return ""
     if "[route:" in text:
         return text
+    route_tag = _claude_route_tag(mode)
     if DIRECT_REPLY_RE.search(text):
-        return text
+        return f"{route_tag}\n{text}".strip() if route_tag else text
     complex_code_guard_needed = bool(COMPLEX_CODE_CHAT_TASK_RE.search(text))
     if REMOTION_TASK_RE.search(text) and "[workflow:remotion]" not in text:
         remotion_guard = """
@@ -1015,7 +1304,6 @@ This is a complex code or software-delivery task.
 - For large or cross-surface development work, all standard team roles must be launched as real teammate sessions before stop/go.
 """.strip()
         text = f"{complex_code_guard}\n\n{text}"
-    route_tag = _claude_route_tag(mode)
     return f"{route_tag}\n{text}".strip() if route_tag else text
 
 
@@ -2231,11 +2519,16 @@ def _build_status(force_refresh: bool = False) -> dict:
     router_config = _read_json_file(CLAUDE_ROUTER_CONFIG_FILE, {})
     providers = []
     for provider in _router_provider_entries(router_config):
+        provider_name = str(provider.get("name") or "").strip()
+        provider_id = _provider_registry_id(provider_name)
+        api_base_url = _resolve_config_env_reference(str(provider.get("api_base_url") or ""), _load_editable_settings())
         providers.append(
             {
-                "name": provider.get("name") or "",
+                "name": provider_name,
+                "providerId": provider_id,
+                "displayName": _provider_display_name(provider_id, api_base_url),
                 "models": provider.get("models") or [],
-                "apiBaseUrl": provider.get("api_base_url") or "",
+                "apiBaseUrl": api_base_url,
             }
         )
     router_section = _router_section(router_config)
@@ -2278,17 +2571,8 @@ def _build_status(force_refresh: bool = False) -> dict:
             "openclawOpsSessionId": _resolve_openclaw_fixed_session_id() if CLAUDE_CONSOLE_ENABLE_OPENCLAW else "",
         },
         "openclawDispatch": _dispatch_state_snapshot_locked(),
-        "modes": [
-            {
-                "id": mode,
-                "label": info["label"],
-                "model": info["model"],
-                "tag": info["tag"],
-                "description": info["description"],
-                "effort": info["effort"],
-            }
-            for mode, info in CLAUDE_MODE_CONFIG.items()
-        ],
+        "modes": _model_catalog(),
+        "modelCatalog": _model_catalog(),
         "agentModes": [
             {
                 "id": agent_mode,
@@ -3068,7 +3352,8 @@ def claude_console_chat():
     agent_name = _resolve_agent_name(agent_mode, prompt, mode)
     autonomous_mode = _should_autocontinue_chat(prompt, agent_mode)
     initial_prompt = _prepare_autonomous_chat_prompt(prepared_prompt) if autonomous_mode else prepared_prompt
-    display_model = str(CLAUDE_MODE_CONFIG.get(mode, {}).get("model") or "").strip()
+    selected_mode = _selected_mode_info(mode)
+    display_model = str(selected_mode.get("modelLabel") or selected_mode.get("model") or "").strip()
 
     def generate():
         try:
@@ -3098,7 +3383,7 @@ def claude_console_chat():
                     timeout_seconds=CLAUDE_CHAT_TIMEOUT_SECONDS,
                 ):
                     if (
-                        mode == "opus46"
+                        str(selected_mode.get("model") or "").strip() == "claude-opus-4-6-thinking"
                         and isinstance(event, dict)
                         and event.get("type") == "session"
                         and display_model
@@ -3248,7 +3533,9 @@ def claude_console_settings():
             "ok": True,
             "envFile": EASY_CLAUDECODE_ENV_FILE,
             "values": _load_editable_settings(),
+            "providers": _provider_settings_payload(),
             "routeOptions": _route_options(),
+            "modelCatalog": _model_catalog(),
             "installers": {
                 "everythingClaudeCode": _everything_claude_code_status(),
             },
@@ -3277,7 +3564,9 @@ def claude_console_update_settings():
             "saved": True,
             "envFile": EASY_CLAUDECODE_ENV_FILE,
             "values": _load_editable_settings(),
+            "providers": _provider_settings_payload(),
             "routeOptions": _route_options(),
+            "modelCatalog": _model_catalog(),
             "installers": {
                 "everythingClaudeCode": _everything_claude_code_status(),
             },

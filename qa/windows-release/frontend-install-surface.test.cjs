@@ -14,3 +14,10 @@ test('welcome and settings surfaces expose the optional Everything Claude Code i
   assert.match(html, /function renderEverythingClaudeCodeSurface\(/, 'frontend should render installer status');
   assert.match(html, /async function installEverythingClaudeCode\(/, 'frontend should support the install action');
 });
+
+test('frontend uses provider-generic settings and a registry-driven model surface', () => {
+  assert.doesNotMatch(html, /DashScope/i, 'frontend should not expose stale DashScope branding');
+  assert.match(html, /function renderProviderSettingsFields\(/, 'frontend should render provider settings dynamically');
+  assert.match(html, /appState\.providerSettings/, 'frontend should track provider settings metadata');
+  assert.match(html, /appState\.modelCatalog/, 'frontend should track a registry-driven model catalog');
+});

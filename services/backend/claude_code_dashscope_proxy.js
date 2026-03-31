@@ -7,9 +7,13 @@ const { Agent, setGlobalDispatcher, ProxyAgent } = require("undici");
 const HOST = process.env.CLAUDE_DASHSCOPE_PROXY_HOST || "127.0.0.1";
 const PORT = Number(process.env.CLAUDE_DASHSCOPE_PROXY_PORT || "3460");
 const UPSTREAM_URL =
+  process.env.CODING_COMPATIBLE_UPSTREAM ||
   process.env.CLAUDE_DASHSCOPE_PROXY_UPSTREAM ||
-  "https://coding.dashscope.aliyuncs.com/apps/anthropic/v1/messages";
-const API_KEY = process.env.DASHSCOPE_CODINGPLAN_API_KEY || "";
+  "https://api.minimaxi.com/anthropic/v1/messages";
+const API_KEY =
+  process.env.CODING_COMPATIBLE_API_KEY ||
+  process.env.DASHSCOPE_CODINGPLAN_API_KEY ||
+  "";
 const ANTHROPIC_VERSION =
   process.env.CLAUDE_DASHSCOPE_ANTHROPIC_VERSION || "2023-06-01";
 const PROXY_URL =
@@ -85,6 +89,18 @@ const MODEL_FALLBACKS = {
   "MiniMax-M2.7-highspeed": ["MiniMax-M2.5", "glm-5", "qwen3-max-2026-01-23"]
 };
 
+function resolveProviderLabel() {
+  const lower = String(UPSTREAM_URL || "").toLowerCase();
+  if (lower.includes("minimax")) return "minimax-compatible";
+  if (lower.includes("openrouter")) return "openrouter-compatible";
+  if (lower.includes("gemini")) return "gemini-compatible";
+  if (lower.includes("moonshot")) return "moonshot-compatible";
+  if (lower.includes("bigmodel") || lower.includes("zhipu")) return "zhipu-compatible";
+  return "compatible-coding";
+}
+
+const PROVIDER_LABEL = resolveProviderLabel();
+
 if (PROXY_URL && ProxyAgent) {
   setGlobalDispatcher(
     new ProxyAgent({
@@ -158,6 +174,7 @@ function preparePayload(payload, model) {
     ...payload,
     model
   });
+  delete prepared.openclawRoute;
 
   const explicitEffort = normalizeEffort(
     prepared.reasoning_effort || prepared.reasoning?.effort
@@ -205,7 +222,11 @@ function isModelTemporarilyUnsupported(model) {
   return true;
 }
 
-function getAttemptModels(requestedModel) {
+function getAttemptModels(requestedModel, payload) {
+  const selection = String(payload?.openclawRoute?.selection || "").trim().toLowerCase();
+  if (selection === "explicit") {
+    return requestedModel ? [requestedModel] : [];
+  }
   const preferredModels = [requestedModel, ...(MODEL_FALLBACKS[requestedModel] || [])];
   const attemptModels = isModelTemporarilyUnsupported(requestedModel)
     ? [...(MODEL_FALLBACKS[requestedModel] || []), requestedModel]
@@ -598,7 +619,7 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "GET" && req.url === "/health") {
     return writeJson(res, 200, {
       status: "ok",
-      provider: "dashscope-codingplan",
+      provider: PROVIDER_LABEL,
       upstream: UPSTREAM_URL,
       apiKeyPresent: Boolean(API_KEY),
       mode: UPSTREAM_MODE,
@@ -611,7 +632,7 @@ const server = http.createServer(async (req, res) => {
       return writeJson(res, 500, {
         error: {
           type: "config_error",
-          message: "DASHSCOPE_CODINGPLAN_API_KEY is not set"
+          message: "CODING_COMPATIBLE_API_KEY is not set"
         }
       });
     }
@@ -652,7 +673,7 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
-    const attemptModels = getAttemptModels(requestedModel);
+    const attemptModels = getAttemptModels(requestedModel, payload);
     let lastFailure = null;
 
     for (const [index, attemptModel] of attemptModels.entries()) {
@@ -740,13 +761,13 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (!API_KEY) {
-    return writeJson(res, 500, {
-      error: {
-        type: "config_error",
-        message: "DASHSCOPE_CODINGPLAN_API_KEY is not set"
-      }
-    });
-  }
+      return writeJson(res, 500, {
+        error: {
+          type: "config_error",
+          message: "CODING_COMPATIBLE_API_KEY is not set"
+        }
+      });
+    }
 
   let rawBody = "";
   try {
@@ -784,7 +805,7 @@ const server = http.createServer(async (req, res) => {
     });
   }
 
-  const attemptModels = getAttemptModels(requestedModel);
+  const attemptModels = getAttemptModels(requestedModel, payload);
   const forcedFailureModel = Array.isArray(req.headers["x-openclaw-force-fail-model"])
     ? req.headers["x-openclaw-force-fail-model"][0]
     : req.headers["x-openclaw-force-fail-model"];

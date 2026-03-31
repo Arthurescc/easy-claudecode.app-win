@@ -1,0 +1,145 @@
+{
+  "providers": [
+    {
+      "id": "compatible-coding",
+      "displayName": "Compatible coding provider",
+      "description": "Use any compatible coding endpoint here, including MiniMax, OpenRouter, Gemini compatibility gateways, Moonshot, or Zhipu-style routes.",
+      "legacyIds": [
+        "dashscope-codingplan"
+      ],
+      "settings": [
+        {
+          "env": "CODING_COMPATIBLE_API_KEY",
+          "legacyEnv": "DASHSCOPE_CODINGPLAN_API_KEY",
+          "label": "Coding provider API key",
+          "type": "password",
+          "placeholder": "sk-..."
+        },
+        {
+          "env": "CODING_COMPATIBLE_UPSTREAM",
+          "legacyEnv": "CLAUDE_DASHSCOPE_PROXY_UPSTREAM",
+          "label": "Coding provider upstream URL",
+          "type": "text",
+          "placeholder": "https://api.minimaxi.com/v1/chat/completions"
+        }
+      ],
+      "displayAliases": [
+        {
+          "contains": "minimax",
+          "displayName": "MiniMax-compatible"
+        },
+        {
+          "contains": "openrouter",
+          "displayName": "OpenRouter-compatible"
+        },
+        {
+          "contains": "gemini",
+          "displayName": "Gemini-compatible"
+        },
+        {
+          "contains": "moonshot",
+          "displayName": "Moonshot-compatible"
+        },
+        {
+          "contains": "bigmodel",
+          "displayName": "Zhipu-compatible"
+        },
+        {
+          "contains": "zhipu",
+          "displayName": "Zhipu-compatible"
+        }
+      ]
+    },
+    {
+      "id": "anthropic-thinking",
+      "displayName": "Anthropic-compatible thinking provider",
+      "description": "Optional deep-thinking endpoint for Claude Opus style routes.",
+      "legacyIds": [
+        "aicodelink-opus"
+      ],
+      "settings": [
+        {
+          "env": "ANTHROPIC_THINKING_API_KEY",
+          "legacyEnv": "AICODELINK_OPUS46_API_KEY",
+          "label": "Thinking provider API key",
+          "type": "password",
+          "placeholder": "sk-ant-..."
+        },
+        {
+          "env": "ANTHROPIC_THINKING_UPSTREAM",
+          "legacyEnv": "CLAUDE_OPUS_PROXY_UPSTREAM",
+          "label": "Thinking provider upstream URL",
+          "type": "text",
+          "placeholder": "https://api.anthropic.com/v1/messages"
+        }
+      ]
+    }
+  ],
+  "models": {
+    "glm-5": {
+      "label": "GLM 5",
+      "vendor": "Zhipu",
+      "description": "Planning, decomposition, and long-chain task orchestration."
+    },
+    "glm-4.7": {
+      "label": "GLM 4.7",
+      "vendor": "Zhipu",
+      "description": "Stable text fallback for general-purpose chat."
+    },
+    "qwen3-max-2026-01-23": {
+      "label": "Qwen 3 Max",
+      "vendor": "Alibaba",
+      "description": "Complex reasoning and verification fallback."
+    },
+    "qwen3.5-plus": {
+      "label": "Qwen 3.5 Plus",
+      "vendor": "Alibaba",
+      "description": "General text and broad fallback coverage."
+    },
+    "qwen3-coder-plus": {
+      "label": "Qwen 3 Coder Plus",
+      "vendor": "Alibaba",
+      "description": "Extra coding backup route."
+    },
+    "qwen3-coder-next": {
+      "label": "Qwen 3 Coder Next",
+      "vendor": "Alibaba",
+      "description": "Experimental coding route for compatible providers."
+    },
+    "kimi-k2.5": {
+      "label": "Kimi K2.5",
+      "vendor": "Moonshot",
+      "description": "UI, OCR, screenshot, and multimodal fallback route."
+    },
+    "MiniMax-M2.5": {
+      "label": "MiniMax M2.5",
+      "vendor": "MiniMax",
+      "description": "Stable MiniMax coding route that is broadly available on compatible plans."
+    },
+    "MiniMax-M2.7-highspeed": {
+      "label": "MiniMax M2.7 Highspeed",
+      "vendor": "MiniMax",
+      "description": "High-speed MiniMax coding route. Some compatible plans reject it directly and should now report that honestly."
+    },
+    "claude-opus-4-6": {
+      "label": "Claude Opus 4.6",
+      "vendor": "Anthropic",
+      "description": "General Anthropic-compatible Opus route."
+    },
+    "claude-opus-4-6-thinking": {
+      "label": "Claude Opus 4.6 Thinking",
+      "vendor": "Anthropic",
+      "description": "Deep-thinking Anthropic-compatible route."
+    }
+  },
+  "legacyModeAliases": {
+    "glm5": "compatible-coding,glm-5",
+    "glm47": "compatible-coding,glm-4.7",
+    "qwenmax": "compatible-coding,qwen3-max-2026-01-23",
+    "qwen35": "compatible-coding,qwen3.5-plus",
+    "qwencoder": "compatible-coding,qwen3-coder-plus",
+    "kimi": "compatible-coding,kimi-k2.5",
+    "minimax": "compatible-coding,MiniMax-M2.7-highspeed",
+    "opus46": "anthropic-thinking,claude-opus-4-6-thinking"
+  }
+}

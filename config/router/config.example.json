@@ -8,9 +8,9 @@
   "CUSTOM_ROUTER_PATH": "__CUSTOM_ROUTER_PATH__",
   "Providers": [
     {
-      "name": "dashscope-codingplan",
+      "name": "compatible-coding",
       "api_base_url": "http://127.0.0.1:3460/v1/messages",
-      "api_key": "$DASHSCOPE_CODINGPLAN_API_KEY",
+      "api_key": "$CODING_COMPATIBLE_API_KEY",
       "models": [
         "qwen3-coder-plus",
         "qwen3-max-2026-01-23",
@@ -36,9 +36,9 @@
       }
     },
     {
-      "name": "aicodelink-opus",
-      "api_base_url": "$CLAUDE_OPUS_PROXY_UPSTREAM",
-      "api_key": "$AICODELINK_OPUS46_API_KEY",
+      "name": "anthropic-thinking",
+      "api_base_url": "$ANTHROPIC_THINKING_UPSTREAM",
+      "api_key": "$ANTHROPIC_THINKING_API_KEY",
       "models": [
         "claude-opus-4-6",
         "claude-opus-4-6-thinking"
@@ -51,11 +51,11 @@
     }
   ],
   "Router": {
-    "default": "dashscope-codingplan,MiniMax-M2.7-highspeed",
-    "background": "dashscope-codingplan,MiniMax-M2.7-highspeed",
-    "think": "dashscope-codingplan,MiniMax-M2.7-highspeed",
-    "longContext": "dashscope-codingplan,MiniMax-M2.7-highspeed",
+    "default": "compatible-coding,MiniMax-M2.5",
+    "background": "compatible-coding,MiniMax-M2.5",
+    "think": "compatible-coding,MiniMax-M2.5",
+    "longContext": "compatible-coding,MiniMax-M2.5",
     "longContextThreshold": 220000,
-    "image": "dashscope-codingplan,kimi-k2.5"
+    "image": "compatible-coding,MiniMax-M2.5"
   }
 }
