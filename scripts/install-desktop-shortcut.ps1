@@ -46,4 +46,12 @@ $Shortcut.IconLocation = $IconLocation
 $Shortcut.WindowStyle = 1
 $Shortcut.Save()
 
+$IconRefreshBin = Join-Path $env:SystemRoot "System32\ie4uinit.exe"
+if (Test-Path $IconRefreshBin) {
+    try {
+        & $IconRefreshBin -show | Out-Null
+    } catch {
+    }
+}
+
 Write-Output $ShortcutPath

@@ -30,11 +30,12 @@ if (-not (Test-Path $IconPath)) {
 New-Item -ItemType Directory -Force -Path $ResolvedOutputDir | Out-Null
 
 $LauncherPath = Join-Path $ResolvedOutputDir "Claude Code.app.exe"
+$TempLauncherPath = Join-Path $ResolvedOutputDir ("Claude Code.app." + [guid]::NewGuid().ToString("N") + ".exe")
 $CompileArgs = @(
     "/nologo",
     "/target:winexe",
     "/optimize+",
-    "/out:$LauncherPath",
+    "/out:$TempLauncherPath",
     "/win32icon:$IconPath",
     "/r:System.dll",
     "/r:System.Core.dll",
@@ -43,8 +44,26 @@ $CompileArgs = @(
 )
 
 & $CscPath @CompileArgs
-if ($LASTEXITCODE -ne 0 -or -not (Test-Path $LauncherPath)) {
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path $TempLauncherPath)) {
     throw "launcher compile failed"
 }
 
-Write-Output $LauncherPath
+$ResolvedLauncherPath = $TempLauncherPath
+try {
+    Remove-Item $LauncherPath -Force -ErrorAction Stop
+    Move-Item $TempLauncherPath $LauncherPath -Force -ErrorAction Stop
+    $ResolvedLauncherPath = $LauncherPath
+} catch {
+    Write-Warning ("launcher target is busy, keeping fallback launcher at " + $TempLauncherPath)
+}
+
+Get-ChildItem $ResolvedOutputDir -Filter "Claude Code.app.*.exe" -ErrorAction SilentlyContinue |
+    Where-Object { $_.FullName -ne $ResolvedLauncherPath } |
+    ForEach-Object {
+        try {
+            Remove-Item $_.FullName -Force -ErrorAction Stop
+        } catch {
+        }
+    }
+
+Write-Output $ResolvedLauncherPath
