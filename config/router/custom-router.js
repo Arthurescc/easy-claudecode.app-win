@@ -84,13 +84,13 @@ const EXPLICIT_ROUTES = [
   },
   {
     pattern: /\[route:minimax\]/i,
-    target: "compatible-coding,MiniMax-M2.7-highspeed"
+    target: "compatible-coding,MiniMax-M2.7"
   }
 ];
 
 const ROLE_ROUTE_PATTERNS = [
   {
-    target: "compatible-coding,MiniMax-M2.5",
+    target: "compatible-coding,MiniMax-M2.7",
     normalizedNeedles: [
       "你是产品经理",
       "产品经理角色",
@@ -115,7 +115,7 @@ const ROLE_ROUTE_PATTERNS = [
     ]
   },
   {
-    target: "compatible-coding,MiniMax-M2.5",
+    target: "compatible-coding,MiniMax-M2.7",
     normalizedNeedles: [
       "你是前端工程师",
       "前端工程师角色",
@@ -134,7 +134,7 @@ const ROLE_ROUTE_PATTERNS = [
     ]
   },
   {
-    target: "compatible-coding,MiniMax-M2.5",
+    target: "compatible-coding,MiniMax-M2.7",
     normalizedNeedles: [
       "你是qa工程师",
       "qa工程师角色",
@@ -154,7 +154,7 @@ const ROLE_ROUTE_PATTERNS = [
     ]
   },
   {
-    target: "compatible-coding,MiniMax-M2.5",
+    target: "compatible-coding,MiniMax-M2.7",
     normalizedNeedles: [
       "completionsupervisor",
       "你是完成度监督代理",
@@ -167,7 +167,7 @@ const ROLE_ROUTE_PATTERNS = [
     ]
   },
   {
-    target: "compatible-coding,MiniMax-M2.5",
+    target: "compatible-coding,MiniMax-M2.7",
     normalizedNeedles: [
       "你是uiux设计师",
       "uiux设计师角色",
@@ -355,23 +355,23 @@ module.exports = async function router(req) {
   }
 
   if (IMAGE_PATTERNS.some((pattern) => pattern.test(userText))) {
-    markRouteSelection(req, "compatible-coding,MiniMax-M2.5", "auto", "image-pattern");
-    return "compatible-coding,MiniMax-M2.5";
+    markRouteSelection(req, "compatible-coding,MiniMax-M2.7", "auto", "image-pattern");
+    return "compatible-coding,MiniMax-M2.7";
   }
 
   if (REVIEW_PATTERNS.some((pattern) => pattern.test(userText))) {
-    markRouteSelection(req, "compatible-coding,MiniMax-M2.5", "auto", "review-pattern");
-    return "compatible-coding,MiniMax-M2.5";
+    markRouteSelection(req, "compatible-coding,MiniMax-M2.7", "auto", "review-pattern");
+    return "compatible-coding,MiniMax-M2.7";
   }
 
   if (CODING_PATTERNS.some((pattern) => pattern.test(userText))) {
-    markRouteSelection(req, "compatible-coding,MiniMax-M2.5", "auto", "coding-pattern");
-    return "compatible-coding,MiniMax-M2.5";
+    markRouteSelection(req, "compatible-coding,MiniMax-M2.7", "auto", "coding-pattern");
+    return "compatible-coding,MiniMax-M2.7";
   }
 
   if (DOCUMENT_PATTERNS.some((pattern) => pattern.test(userText))) {
-    markRouteSelection(req, "compatible-coding,MiniMax-M2.5", "auto", "document-pattern");
-    return "compatible-coding,MiniMax-M2.5";
+    markRouteSelection(req, "compatible-coding,MiniMax-M2.7", "auto", "document-pattern");
+    return "compatible-coding,MiniMax-M2.7";
   }
 
   return null;

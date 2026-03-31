@@ -154,6 +154,7 @@ CLAUDE_CHAT_TIMEOUT_SECONDS = int(os.getenv("CLAUDE_CHAT_TIMEOUT_SECONDS", "1800
 CLAUDE_QUICK_RUN_TIMEOUT_SECONDS = int(os.getenv("CLAUDE_QUICK_RUN_TIMEOUT_SECONDS", "180"))
 CLAUDE_LIBRARY_CACHE_TTL_SECONDS = float(os.getenv("CLAUDE_LIBRARY_CACHE_TTL_SECONDS", "15"))
 CLAUDE_STATUS_CACHE_TTL_SECONDS = float(os.getenv("CLAUDE_STATUS_CACHE_TTL_SECONDS", "4"))
+CLAUDE_MODEL_PROBE_CACHE_TTL_SECONDS = float(os.getenv("CLAUDE_MODEL_PROBE_CACHE_TTL_SECONDS", "600"))
 LOCAL_NO_PROXY_VALUE = "127.0.0.1,localhost"
 PROXY_ENV_KEYS = (
     "HTTP_PROXY",
@@ -170,6 +171,8 @@ LIBRARY_CACHE_LOCK = threading.Lock()
 LIBRARY_CACHE: dict[str, object] = {"signature": None, "payload": None, "createdAt": 0.0}
 STATUS_CACHE_LOCK = threading.Lock()
 STATUS_CACHE: dict[str, object] = {"payload": None, "createdAt": 0.0}
+MODEL_PROBE_CACHE_LOCK = threading.Lock()
+MODEL_PROBE_CACHE: dict[str, object] = {"items": {}, "createdAt": 0.0}
 
 CLAUDE_MODE_CONFIG = {
     "auto": {
@@ -222,11 +225,11 @@ CLAUDE_MODE_CONFIG = {
         "model": "qwen3-coder-plus",
     },
     "minimax": {
-        "label": "MiniMax-M2.7-highspeed",
+        "label": "MiniMax-M2.7",
         "tag": "[route:minimax]",
         "description": "主编程、调试、修复、高逻辑实现",
         "effort": "medium",
-        "model": "MiniMax-M2.7-highspeed",
+        "model": "MiniMax-M2.7",
     },
     "opus46": {
         "label": "opus 4.6 thinking",
@@ -239,7 +242,7 @@ CLAUDE_MODE_CONFIG = {
 
 CLAUDE_ASSIGNMENT_MATRIX = [
     {"scope": "任务拆解 / teams 编排 / 细节补全", "model": "glm-5", "effort": "high"},
-    {"scope": "主编程 / 调试 / 实现", "model": "MiniMax-M2.7-highspeed", "effort": "high"},
+    {"scope": "主编程 / 调试 / 实现", "model": "MiniMax-M2.7", "effort": "high"},
     {"scope": "审查 / 核验 / 回归", "model": "qwen3-max-2026-01-23", "effort": "high"},
     {"scope": "截图 / OCR / UI / 视觉", "model": "kimi-k2.5", "effort": "medium"},
     {"scope": "视觉托底", "model": "qwen3.5-plus", "effort": "medium"},
@@ -818,6 +821,30 @@ def _provider_registry_model_meta(model_name: str) -> dict[str, object]:
     return {}
 
 
+def _provider_profile_entries(provider_id: str) -> list[dict[str, object]]:
+    entry = _provider_registry_entry(provider_id)
+    if isinstance(entry, dict):
+        profiles = entry.get("profiles")
+        if isinstance(profiles, list):
+            return [item for item in profiles if isinstance(item, dict)]
+    return []
+
+
+def _resolve_provider_profile(provider_id: str, upstream_url: str = "") -> dict[str, object]:
+    profiles = _provider_profile_entries(provider_id)
+    if not profiles:
+        return {}
+    upstream_lower = str(upstream_url or "").strip().lower()
+    for profile in profiles:
+        for matcher in profile.get("matchers") or []:
+            needle = str(matcher or "").strip().lower()
+            if needle and needle in upstream_lower:
+                return profile
+    if len(profiles) == 1 and not list(profiles[0].get("matchers") or []):
+        return profiles[0]
+    return {}
+
+
 def _legacy_mode_aliases() -> dict[str, str]:
     aliases = _provider_registry_payload().get("legacyModeAliases")
     if isinstance(aliases, dict):
@@ -833,6 +860,11 @@ def _provider_display_name(provider_id: str, upstream_url: str = "") -> str:
     entry = _provider_registry_entry(provider_id)
     if not isinstance(entry, dict):
         return str(provider_id or "").strip()
+    profile = _resolve_provider_profile(provider_id, upstream_url)
+    if isinstance(profile, dict):
+        profile_display_name = str(profile.get("displayName") or "").strip()
+        if profile_display_name:
+            return profile_display_name
     upstream_lower = str(upstream_url or "").strip().lower()
     for alias in entry.get("displayAliases") or []:
         if not isinstance(alias, dict):
@@ -883,6 +915,31 @@ def _split_route_id(route_id: str) -> tuple[str, str]:
     return provider.strip(), model.strip()
 
 
+def _provider_supported_models(route_provider: str, upstream_url: str, configured_models: list[object]) -> list[str]:
+    resolved_provider_id = _provider_registry_id(route_provider)
+    configured = [str(model or "").strip() for model in configured_models if str(model or "").strip()]
+    profile = _resolve_provider_profile(resolved_provider_id, upstream_url)
+    profile_models = [str(model or "").strip() for model in (profile.get("models") or []) if str(model or "").strip()]
+    if not profile_models:
+        return configured
+    configured_set = set(configured)
+    filtered = [model for model in profile_models if not configured_set or model in configured_set]
+    return filtered or configured
+
+
+def _provider_effective_upstream(provider_id: str, api_base_url: str, settings_values: dict[str, str]) -> str:
+    resolved_provider_id = _provider_registry_id(provider_id)
+    if resolved_provider_id == "compatible-coding":
+        explicit = str(settings_values.get("CODING_COMPATIBLE_UPSTREAM") or "").strip()
+        if explicit:
+            return explicit
+    if resolved_provider_id == "anthropic-thinking":
+        explicit = str(settings_values.get("ANTHROPIC_THINKING_UPSTREAM") or "").strip()
+        if explicit:
+            return explicit
+    return str(api_base_url or "").strip()
+
+
 def _route_catalog() -> list[dict[str, str]]:
     config_payload = _route_config_payload()
     settings_values = _load_editable_settings()
@@ -893,9 +950,11 @@ def _route_catalog() -> list[dict[str, str]]:
         if not route_provider:
             continue
         resolved_provider_id = _provider_registry_id(route_provider)
-        upstream_url = _resolve_config_env_reference(str(provider.get("api_base_url") or ""), settings_values)
-        provider_label = _provider_display_name(resolved_provider_id, upstream_url)
-        for model in provider.get("models") or []:
+        api_base_url = _resolve_config_env_reference(str(provider.get("api_base_url") or ""), settings_values)
+        effective_upstream = _provider_effective_upstream(resolved_provider_id, api_base_url, settings_values)
+        provider_label = _provider_display_name(resolved_provider_id, effective_upstream)
+        supported_models = _provider_supported_models(route_provider, effective_upstream, provider.get("models") or [])
+        for model in supported_models:
             model_name = str(model or "").strip()
             if not model_name:
                 continue
@@ -912,6 +971,7 @@ def _route_catalog() -> list[dict[str, str]]:
                     "provider": route_provider,
                     "providerId": resolved_provider_id,
                     "providerLabel": provider_label,
+                    "upstream": effective_upstream,
                     "model": model_name,
                     "modelLabel": model_label,
                     "vendor": str(model_meta.get("vendor") or "").strip(),
@@ -995,6 +1055,117 @@ def _provider_settings_payload() -> list[dict[str, object]]:
             }
         )
     return providers
+
+
+def _clear_model_probe_cache() -> None:
+    with MODEL_PROBE_CACHE_LOCK:
+        MODEL_PROBE_CACHE["items"] = {}
+        MODEL_PROBE_CACHE["createdAt"] = 0.0
+
+
+def _extract_provider_error_code(body_text: str) -> str:
+    match = re.search(r"\((\d{4})\)", str(body_text or ""))
+    return str(match.group(1) if match else "").strip()
+
+
+def _proxy_messages_url() -> str:
+    health_url = str(CLAUDE_PROXY_HEALTH_URL or "").strip()
+    if health_url.endswith("/health"):
+        return health_url[: -len("/health")] + "/v1/messages"
+    if health_url:
+        return health_url.rstrip("/") + "/v1/messages"
+    return "http://127.0.0.1:3460/v1/messages"
+
+
+def _probe_model_access(route_id: str, force_refresh: bool = False) -> dict[str, object]:
+    matched_route_id = _match_route_id(route_id) or str(route_id or "").strip()
+    route_info = next((item for item in _route_catalog() if str(item.get("id") or "").strip() == matched_route_id), None)
+    if not isinstance(route_info, dict):
+        return {"ok": False, "routeId": matched_route_id, "supported": False, "reason": "unknown_route", "errorCode": ""}
+    if str(route_info.get("providerId") or "").strip() != "compatible-coding":
+        return {"ok": True, "routeId": matched_route_id, "supported": True, "reason": "not_applicable", "errorCode": ""}
+
+    now = time.time()
+    with MODEL_PROBE_CACHE_LOCK:
+        items = MODEL_PROBE_CACHE.get("items") or {}
+        cached = items.get(matched_route_id) if isinstance(items, dict) else None
+        if (
+            not force_refresh
+            and isinstance(cached, dict)
+            and (now - float(cached.get("createdAt") or 0.0)) <= CLAUDE_MODEL_PROBE_CACHE_TTL_SECONDS
+        ):
+            return copy.deepcopy(cached.get("payload") or {})
+
+    payload = {
+        "model": str(route_info.get("model") or "").strip(),
+        "max_tokens": 8,
+        "stream": False,
+        "messages": [{"role": "user", "content": "Reply with exactly ok"}],
+        "openclawRoute": {"selection": "explicit", "routeId": matched_route_id},
+    }
+    request_body = json.dumps(payload).encode("utf-8")
+    request_obj = urllib_request.Request(
+        _proxy_messages_url(),
+        data=request_body,
+        headers={
+            "Content-Type": "application/json",
+            "x-api-key": "local-probe",
+            "anthropic-version": "2023-06-01",
+        },
+        method="POST",
+    )
+
+    result: dict[str, object]
+    opener = urllib_request.build_opener(urllib_request.ProxyHandler({}))
+    try:
+        with opener.open(request_obj, timeout=20) as response:
+            _ = response.read()
+            result = {
+                "ok": True,
+                "routeId": matched_route_id,
+                "supported": True,
+                "reason": "supported",
+                "errorCode": "",
+                "statusCode": response.getcode(),
+            }
+    except urllib_error.HTTPError as exc:
+        body_text = exc.read().decode("utf-8", errors="ignore")
+        error_code = _extract_provider_error_code(body_text)
+        reason = "provider_error"
+        if error_code == "2061" or "not support model" in body_text.lower():
+            reason = "plan_unsupported"
+        elif error_code in {"2062", "2056"} or exc.code == 429:
+            reason = "rate_limited"
+        elif exc.code in {401, 403}:
+            reason = "auth_error"
+        result = {
+            "ok": True,
+            "routeId": matched_route_id,
+            "supported": False,
+            "reason": reason,
+            "errorCode": error_code,
+            "statusCode": exc.code,
+            "providerMessage": body_text[:500],
+        }
+    except Exception as exc:
+        result = {
+            "ok": True,
+            "routeId": matched_route_id,
+            "supported": False,
+            "reason": "probe_error",
+            "errorCode": "",
+            "statusCode": 0,
+            "providerMessage": str(exc),
+        }
+
+    with MODEL_PROBE_CACHE_LOCK:
+        items = MODEL_PROBE_CACHE.get("items")
+        if not isinstance(items, dict):
+            items = {}
+            MODEL_PROBE_CACHE["items"] = items
+        items[matched_route_id] = {"createdAt": now, "payload": copy.deepcopy(result)}
+        MODEL_PROBE_CACHE["createdAt"] = now
+    return result
 
 
 def _router_section(router_config: dict) -> dict:
@@ -2518,17 +2689,20 @@ def _build_status(force_refresh: bool = False) -> dict:
         }
     router_config = _read_json_file(CLAUDE_ROUTER_CONFIG_FILE, {})
     providers = []
+    current_settings = _load_editable_settings()
     for provider in _router_provider_entries(router_config):
         provider_name = str(provider.get("name") or "").strip()
         provider_id = _provider_registry_id(provider_name)
-        api_base_url = _resolve_config_env_reference(str(provider.get("api_base_url") or ""), _load_editable_settings())
+        api_base_url = _resolve_config_env_reference(str(provider.get("api_base_url") or ""), current_settings)
+        effective_upstream = _provider_effective_upstream(provider_id, api_base_url, current_settings)
         providers.append(
             {
                 "name": provider_name,
                 "providerId": provider_id,
-                "displayName": _provider_display_name(provider_id, api_base_url),
-                "models": provider.get("models") or [],
+                "displayName": _provider_display_name(provider_id, effective_upstream),
+                "models": _provider_supported_models(provider_name, effective_upstream, provider.get("models") or []),
                 "apiBaseUrl": api_base_url,
+                "effectiveUpstream": effective_upstream,
             }
         )
     router_section = _router_section(router_config)
@@ -3557,6 +3731,7 @@ def claude_console_update_settings():
         for key in EDITABLE_SETTINGS_FIELDS
     }
     _save_editable_settings(updates)
+    _clear_model_probe_cache()
     sync_result = _sync_router_runtime()
     return jsonify(
         {
@@ -3575,6 +3750,18 @@ def claude_console_update_settings():
             "msg": "设置已保存。重启 Claude Code.app 后即可完整应用新的 API key 与上游配置。",
         }
     )
+
+
+@app.route("/claude-console/models/probe", methods=["POST"])
+def claude_console_probe_model():
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        return jsonify({"ok": False, "msg": "invalid json"}), 400
+    route_id = str(data.get("routeId") or "").strip()
+    if not route_id:
+        return jsonify({"ok": False, "msg": "missing routeId"}), 400
+    payload = _probe_model_access(route_id, force_refresh=bool(data.get("forceRefresh")))
+    return jsonify(payload)
 
 
 @app.route("/claude-console/installers/everything-claude-code", methods=["POST"])

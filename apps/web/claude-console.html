@@ -631,6 +631,14 @@
             color: #a0482a;
         }
 
+        .composer-note.warning {
+            color: #a0482a;
+        }
+
+        .composer-note.ok {
+            color: var(--mint);
+        }
+
         .overlay-actions {
             margin-top: 18px;
             justify-content: flex-end;
@@ -1413,6 +1421,7 @@
                                 <select class="composer-select" id="agent-mode"></select>
                             </div>
                         </div>
+                        <div class="composer-note" id="model-route-status"></div>
                     </div>
                     <div class="attachment-list" id="attachment-list" style="display:none;"></div>
                     <textarea id="composer-input" placeholder="直接输入任务，例如：帮我删除桌面几张截屏，或检查这个仓库的关键报错并修复。"></textarea>
@@ -1704,6 +1713,11 @@
                 request_failed: '请求失败（状态 {status}）',
                 chat_failed: '聊天请求失败（状态 {status}）',
                 current_config_loaded: '当前配置已读取。',
+                model_probe_checking: '正在检查所选模型是否可被当前 API key / 套餐调用...',
+                model_probe_plan_unsupported: '当前 API key 或套餐暂不支持 {label}（{errorCode}）。',
+                model_probe_rate_limited: '当前 provider 对 {label} 触发了额度或频率限制（{errorCode}）。',
+                model_probe_auth_error: '当前 provider 的认证信息无法调用 {label}。',
+                model_probe_error: '暂时无法确认 {label} 是否可用，请在发送时留意返回提示。',
                 attached_files_label: '已附文件',
                 system_notice_busy: '[系统] 当前会话正在后台执行任务，已自动切到新会话继续，避免卡住。',
                 system_notice_system: '[系统] 当前会话属于系统事务线程，已自动切到新会话继续，避免把超长任务上下文带进手动聊天。',
@@ -1883,6 +1897,11 @@
                 request_failed: 'Request failed (status {status})',
                 chat_failed: 'Chat request failed (status {status})',
                 current_config_loaded: 'Current configuration loaded.',
+                model_probe_checking: 'Checking whether the selected model is available to the current API key or plan...',
+                model_probe_plan_unsupported: 'The current API key or plan does not support {label} ({errorCode}).',
+                model_probe_rate_limited: 'The current provider hit a rate or quota limit for {label} ({errorCode}).',
+                model_probe_auth_error: 'The current provider credentials cannot access {label}.',
+                model_probe_error: 'Could not confirm whether {label} is available right now. Watch the next response for details.',
                 attached_files_label: 'Attached files',
                 system_notice_busy: '[System] This thread is already running in the background, so a new thread was opened automatically to keep the UI responsive.',
                 system_notice_system: '[System] This thread belongs to a system workflow, so a new chat was opened automatically to avoid dragging a long-running context into a manual conversation.',
@@ -2032,6 +2051,8 @@
             providerSettings: [],
             settingsRouteOptions: [],
             eccInstallBusy: false,
+            modelRouteStatus: { message: '', tone: '' },
+            modelProbeToken: 0,
         };
 
         let dialogConfirmHandler = null;
@@ -2906,6 +2927,11 @@
             select.value = nextMode;
         }
 
+        function selectedModelCatalogItem() {
+            const options = resolveModelCatalog(appState.modelCatalog, appState.availableModes);
+            return options.find((item) => item.id === appState.mode) || options.find((item) => item.id === 'auto') || null;
+        }
+
         function renderAgentModeOptions() {
             const select = document.getElementById('agent-mode');
             const options = Array.isArray(appState.availableAgentModes) && appState.availableAgentModes.length
@@ -3471,6 +3497,63 @@
             node.classList.toggle('error', Boolean(isError && message));
         }
 
+        function setModelRouteStatus(message = '', tone = '') {
+            const node = document.getElementById('model-route-status');
+            if (!node) return;
+            appState.modelRouteStatus = { message: String(message || ''), tone: String(tone || '') };
+            node.textContent = appState.modelRouteStatus.message;
+            node.classList.toggle('warning', appState.modelRouteStatus.tone === 'warning' && Boolean(message));
+            node.classList.toggle('ok', appState.modelRouteStatus.tone === 'ok' && Boolean(message));
+        }
+
+        function formatModelProbeMessage(payload, item) {
+            const label = String(item?.label || item?.modelLabel || item?.model || appState.mode || '').trim();
+            const errorCode = String(payload?.errorCode || '').trim();
+            const reason = String(payload?.reason || '').trim();
+            if (reason === 'plan_unsupported') {
+                return { message: t('model_probe_plan_unsupported', { label, errorCode: errorCode || 'unknown' }), tone: 'warning' };
+            }
+            if (reason === 'rate_limited') {
+                return { message: t('model_probe_rate_limited', { label, errorCode: errorCode || 'unknown' }), tone: 'warning' };
+            }
+            if (reason === 'auth_error') {
+                return { message: t('model_probe_auth_error', { label }), tone: 'warning' };
+            }
+            if (payload?.supported === false) {
+                return { message: t('model_probe_error', { label }), tone: 'warning' };
+            }
+            return { message: '', tone: '' };
+        }
+
+        async function refreshModelRouteStatus({ force = false } = {}) {
+            const selected = selectedModelCatalogItem();
+            if (!selected || String(selected.id || '') === 'auto' || String(selected.kind || '') !== 'route') {
+                setModelRouteStatus('');
+                return;
+            }
+
+            const token = ++appState.modelProbeToken;
+            setModelRouteStatus(t('model_probe_checking'));
+
+            try {
+                const payload = await apiJson('/claude-console/models/probe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        routeId: selected.routeId || selected.id,
+                        forceRefresh: Boolean(force),
+                    }),
+                });
+                if (token !== appState.modelProbeToken) return;
+                const next = formatModelProbeMessage(payload, selected);
+                setModelRouteStatus(next.message, next.tone);
+            } catch (_error) {
+                if (token !== appState.modelProbeToken) return;
+                const next = formatModelProbeMessage({ supported: false, reason: 'probe_error' }, selected);
+                setModelRouteStatus(next.message, next.tone);
+            }
+        }
+
         function focusComposerInput() {
             const input = document.getElementById('composer-input');
             if (input) input.focus();
@@ -3661,6 +3744,7 @@
             renderLocaleOptions();
             renderSettingsRouteOptions(values.EASY_CLAUDECODE_DEFAULT_ROUTE || '');
             renderModelOptions();
+            refreshModelRouteStatus().catch(() => {});
             document.getElementById('settings-locale').value = currentLocale();
             document.getElementById('settings-dialog-env-path').textContent = payload.envFile
                 ? t('env_file_label', { path: payload.envFile })
@@ -3709,6 +3793,8 @@
                 applyLocale();
                 renderProviderSettingsFields();
                 renderSettingsRouteOptions(payload.values?.EASY_CLAUDECODE_DEFAULT_ROUTE || '');
+                renderModelOptions();
+                refreshModelRouteStatus({ force: true }).catch(() => {});
                 renderEverythingClaudeCodeSurface(payload.installers?.everythingClaudeCode || null);
                 setSettingsStatus(t('settings_saved'));
                 window.setTimeout(() => closeSettingsDialog(), 380);
@@ -4277,6 +4363,7 @@
                 document.getElementById('permission-mode').value = appState.permissionMode;
                 document.getElementById('model-route').value = appState.mode;
                 document.getElementById('agent-mode').value = appState.agentMode;
+                refreshModelRouteStatus().catch(() => {});
                 if (background && shouldDeferSidebarRender()) {
                     appState.sidebarRenderPending = true;
                     queueDeferredSidebarRender();
@@ -4975,6 +5062,7 @@
             document.getElementById('model-route').addEventListener('change', (event) => {
                 appState.mode = event.target.value || 'auto';
                 updateTopBadges();
+                refreshModelRouteStatus({ force: true }).catch(handleError);
             });
             document.getElementById('agent-mode').addEventListener('change', (event) => {
                 appState.agentMode = event.target.value || 'auto';

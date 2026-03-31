@@ -37,11 +37,14 @@ jobs:
         run: |
           .\.venv\Scripts\python.exe -m py_compile services/backend/app.py services/backend/claude_console_utils.py
           .\.venv\Scripts\python.exe .github/scripts/check_inline_js.py apps/web/claude-console.html
-          node --test qa/router/custom-router.test.cjs qa/windows-release/frontend-install-surface.test.cjs qa/windows-release/release-workflow.test.cjs
+          node --test qa/router/custom-router.test.cjs qa/windows-release/frontend-install-surface.test.cjs qa/windows-release/readme-bootstrap-surface.test.cjs qa/windows-release/release-workflow.test.cjs
           .\qa\windows-release\common-env-home-expansion-smoke.ps1
+          .\qa\windows-release\install-from-github-smoke.ps1
           .\qa\windows-release\provider-registry-settings-smoke.ps1
+          .\qa\windows-release\provider-profile-model-catalog-smoke.ps1
           .\qa\windows-release\direct-reply-explicit-route-smoke.ps1
           .\qa\windows-release\explicit-model-no-fallback-smoke.ps1
+          .\qa\windows-release\unsupported-model-warning-smoke.ps1
           .\qa\windows-release\launcher-shortcut-self-heal-smoke.ps1
           .\qa\windows-release\settings-default-route-smoke.ps1
           node --check services/backend/claude_code_dashscope_proxy.js

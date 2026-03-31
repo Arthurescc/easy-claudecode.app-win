@@ -29,7 +29,7 @@ assert settings.status_code == 200, settings.status_code
 assert "EASY_CLAUDECODE_DEFAULT_ROUTE" in payload["values"], payload["values"]
 assert payload.get("routeOptions"), payload
 
-chosen_route = "compatible-coding,MiniMax-M2.5"
+chosen_route = "compatible-coding,MiniMax-M2.7"
 response = client.post(
     "/claude-console/settings",
     json={

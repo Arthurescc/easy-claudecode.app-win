@@ -71,7 +71,12 @@ const DEFAULT_REASONING = {
   "kimi-k2.5": "medium",
   "qwen3.5-plus": "medium",
   "glm-4.7": "medium",
+  "MiniMax-M2": "medium",
+  "MiniMax-M2.1": "medium",
+  "MiniMax-M2.1-highspeed": "medium",
   "MiniMax-M2.5": "medium",
+  "MiniMax-M2.5-highspeed": "medium",
+  "MiniMax-M2.7": "medium",
   "MiniMax-M2.7-highspeed": "medium"
 };
 
@@ -85,8 +90,13 @@ const MODEL_FALLBACKS = {
   "kimi-k2.5": ["qwen3.5-plus"],
   "qwen3.5-plus": ["kimi-k2.5"],
   "glm-4.7": ["glm-5", "qwen3-max-2026-01-23"],
-  "MiniMax-M2.5": ["MiniMax-M2.7-highspeed", "glm-5", "qwen3-max-2026-01-23"],
-  "MiniMax-M2.7-highspeed": ["MiniMax-M2.5", "glm-5", "qwen3-max-2026-01-23"]
+  "MiniMax-M2": ["MiniMax-M2.1", "MiniMax-M2.5", "MiniMax-M2.7"],
+  "MiniMax-M2.1": ["MiniMax-M2.5", "MiniMax-M2.7", "MiniMax-M2"],
+  "MiniMax-M2.1-highspeed": ["MiniMax-M2.1", "MiniMax-M2.5", "MiniMax-M2.7"],
+  "MiniMax-M2.5": ["MiniMax-M2.7", "MiniMax-M2.5-highspeed", "glm-5", "qwen3-max-2026-01-23"],
+  "MiniMax-M2.5-highspeed": ["MiniMax-M2.5", "MiniMax-M2.7", "glm-5", "qwen3-max-2026-01-23"],
+  "MiniMax-M2.7": ["MiniMax-M2.5", "MiniMax-M2.7-highspeed", "glm-5", "qwen3-max-2026-01-23"],
+  "MiniMax-M2.7-highspeed": ["MiniMax-M2.7", "MiniMax-M2.5", "glm-5", "qwen3-max-2026-01-23"]
 };
 
 function resolveProviderLabel() {

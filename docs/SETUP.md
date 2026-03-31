@@ -29,6 +29,14 @@ npm install
 Copy-Item .env.example .env
 ```
 
+## One-line Windows bootstrap
+
+```powershell
+powershell -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((Invoke-WebRequest 'https://raw.githubusercontent.com/Arthurescc/easy-claudecode.app-win/main/scripts/install-from-github.ps1' -UseBasicParsing).Content))"
+```
+
+The bootstrap script checks the source environment, prepares the repo, installs Python and Node dependencies, creates `.env` if needed, and launches the app.
+
 The public setup now uses provider-generic environment names:
 
 - `CODING_COMPATIBLE_API_KEY`
@@ -66,7 +74,7 @@ Quick model switching can stay in CLI:
 
 ```powershell
 cc switch --list
-cc switch compatible-coding,MiniMax-M2.5
+cc switch compatible-coding,MiniMax-M2.7
 ```
 
 ## GitHub publishing checklist
