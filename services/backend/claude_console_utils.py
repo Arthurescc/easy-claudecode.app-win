@@ -75,6 +75,14 @@ DISPLAY_MODEL_ALIASES = {
 }
 AUTO_PERMISSION_MODES = {"", "auto", "default"}
 DEFAULT_PERMISSION_MODE = (os.getenv("CLAUDE_WEB_PERMISSION_MODE", "auto") or "auto").strip()
+PERMISSION_MODE_ALIASES = {
+    "auto": "auto",
+    "default": "default",
+    "acceptedits": "acceptEdits",
+    "bypasspermissions": "bypassPermissions",
+    "dontask": "dontAsk",
+    "plan": "plan",
+}
 
 
 def _resolve_real_claude_bin() -> str:
@@ -109,18 +117,18 @@ def normalize_display_model(model_name: str) -> str:
 
 def normalize_permission_mode(permission_mode: str | None) -> str:
     raw_value = str(permission_mode or "").strip()
-    if raw_value.lower() in AUTO_PERMISSION_MODES:
+    if not raw_value:
         return "auto"
-    return raw_value or "auto"
+    return PERMISSION_MODE_ALIASES.get(raw_value.lower(), raw_value)
 
 
 def append_permission_flags(command: List[str], permission_mode: str | None) -> str:
     normalized = normalize_permission_mode(permission_mode)
     if normalized == "bypassPermissions":
-        command.append("--dangerously-skip-permissions")
+        command.extend(["--dangerously-skip-permissions", "--permission-mode", "bypassPermissions"])
         return normalized
     if normalized == "auto":
-        command.append("--enable-auto-mode")
+        command.extend(["--enable-auto-mode", "--permission-mode", "auto"])
         return normalized
     command.extend(["--permission-mode", normalized])
     return normalized
@@ -176,6 +184,13 @@ def _compact_json(value: Any) -> str:
         return str(value)
 
 
+def _clip_step_text(value: str, limit: int = 420) -> str:
+    text = str(value or "").strip()
+    if len(text) <= limit:
+        return text
+    return text[: max(0, limit - 1)].rstrip() + "…"
+
+
 def normalize_run_step(event: dict[str, object] | None) -> Dict[str, Any]:
     payload = event if isinstance(event, dict) else {}
     tool_payload = payload.get("tool") if isinstance(payload.get("tool"), dict) else {}
@@ -204,10 +219,10 @@ def normalize_run_step(event: dict[str, object] | None) -> Dict[str, Any]:
     return {
         "kind": kind or "step",
         "label": label,
-        "summary": summary,
+        "summary": _clip_step_text(summary),
         "command": command,
         "status": "error" if is_error else "ok",
-        "rawText": raw_text,
+        "rawText": _clip_step_text(raw_text, limit=600),
     }
 
 

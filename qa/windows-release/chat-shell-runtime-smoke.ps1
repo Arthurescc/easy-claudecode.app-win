@@ -36,8 +36,30 @@ assert "contextUsage" in shell, shell
 assert "slashSections" in shell, shell
 assert "permissionDefault" in shell, shell
 assert shell["permissionDefault"] == "auto", shell
+assert payload.get("webDefaults", {}).get("permissionMode") == shell["permissionDefault"], payload.get("webDefaults")
 assert any(str(item.get("id") or "") == "skills" for item in shell.get("slashSections") or []), shell
 assert any(str(item.get("id") or "") == "mcp" for item in shell.get("slashSections") or []), shell
+
+assert app._claude_normalize_permission_mode("default") == "default"
+assert app._claude_normalize_permission_mode("") == "auto"
+
+auto_args = []
+app._claude_append_permission_flags(auto_args, "auto")
+assert auto_args == ["--enable-auto-mode", "--permission-mode", "auto"], auto_args
+
+default_args = []
+app._claude_append_permission_flags(default_args, "default")
+assert default_args == ["--permission-mode", "default"], default_args
+
+original_permission_default = app.CLAUDE_WEB_PERMISSION_MODE
+try:
+    app.CLAUDE_WEB_PERMISSION_MODE = "default"
+    payload = app._build_status(force_refresh=True)
+    shell = payload.get("chatShell") or {}
+    assert shell.get("permissionDefault") == "default", shell
+    assert payload.get("webDefaults", {}).get("permissionMode") == "default", payload.get("webDefaults")
+finally:
+    app.CLAUDE_WEB_PERMISSION_MODE = original_permission_default
 
 print("chat shell runtime ok")
 '@ | & $PythonBin -

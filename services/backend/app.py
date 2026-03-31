@@ -2755,6 +2755,7 @@ def _chat_shell_payload(
     model_catalog: list[dict[str, object]],
     setup_status: dict[str, object],
     default_route: str,
+    permission_default: str,
 ) -> dict[str, object]:
     context_usage = _claude_latest_session_context_usage(CLAUDE_PROJECT_SESSIONS_DIR)
     mcp_items = [
@@ -2846,7 +2847,7 @@ def _chat_shell_payload(
         {"id": "skills", "label": "Skills", "count": len(skills_items), "items": skills_items},
     ]
     return {
-        "permissionDefault": "auto",
+        "permissionDefault": permission_default,
         "contextUsage": context_usage,
         "slashSections": slash_sections,
     }
@@ -2966,9 +2967,10 @@ def _build_status(force_refresh: bool = False) -> dict:
             model_catalog=model_catalog,
             setup_status=setup_status,
             default_route=str(current_settings.get("EASY_CLAUDECODE_DEFAULT_ROUTE") or "").strip(),
+            permission_default=CLAUDE_WEB_PERMISSION_MODE,
         ),
         "webDefaults": {
-            "permissionMode": "auto",
+            "permissionMode": CLAUDE_WEB_PERMISSION_MODE,
             "chatTimeoutSeconds": CLAUDE_CHAT_TIMEOUT_SECONDS,
             "locale": current_settings.get("CLAUDE_CONSOLE_LOCALE") or EDITABLE_SETTINGS_DEFAULTS["CLAUDE_CONSOLE_LOCALE"],
         },
