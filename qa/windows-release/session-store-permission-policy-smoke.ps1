@@ -23,6 +23,7 @@ $env:CHAT_SHELL_REPO_ROOT = $RepoRoot
 @'
 import os
 import sys
+from pathlib import Path
 
 repo_root = os.environ["CHAT_SHELL_REPO_ROOT"]
 sys.path.insert(0, os.path.join(repo_root, "services", "backend"))
@@ -30,9 +31,9 @@ sys.path.insert(0, os.path.join(repo_root, "services", "backend"))
 import app  # noqa: E402
 import claude_console_utils as utils  # noqa: E402
 
-workspace_root = r"C:\Users\Administrator\Documents\Playground"
-claude_home = r"C:\Users\Administrator\.claude"
-expected_slug = "C--Users-Administrator-Documents-Playground"
+workspace_root = str(Path(repo_root).resolve().parent)
+claude_home = str(Path.home() / ".claude")
+expected_slug = os.path.abspath(os.path.expanduser(workspace_root)).replace("\\", "/").replace(":", "-").replace("/", "-") or "-"
 expected_project_dir = os.path.join(claude_home, "projects", expected_slug)
 
 assert utils.project_slug_from_path(workspace_root) == expected_slug

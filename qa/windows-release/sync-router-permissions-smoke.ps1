@@ -5,12 +5,19 @@ $TempHome = Join-Path $env:TEMP ("easy-claudecode-sync-router-" + [guid]::NewGui
 New-Item -ItemType Directory -Force -Path $TempHome | Out-Null
 
 try {
+    $DocumentsPath = Join-Path $TempHome "docs"
+    $DesktopPath = Join-Path $TempHome "desktop"
+    $WorkspaceRoot = (Resolve-Path (Join-Path $RepoRoot "..")).Path
+    New-Item -ItemType Directory -Force -Path $DocumentsPath | Out-Null
+    New-Item -ItemType Directory -Force -Path $DesktopPath | Out-Null
+
     $env:HOME = $TempHome
     $env:USERPROFILE = $TempHome
     $env:EASY_CLAUDECODE_ROOT = $RepoRoot
+    $env:EASY_CLAUDECODE_ENV_FILE = Join-Path $TempHome ".env"
     $env:EASY_CLAUDECODE_HOME = Join-Path $TempHome ".easy-claudecode"
-    $env:CLAUDE_WORKSPACE_ROOT = "C:/Users/Administrator/Documents/Playground"
-    $env:CLAUDE_EXTRA_ALLOWED_DIRS = "C:/Users/Administrator/Documents,C:/Users/Administrator/Desktop"
+    $env:CLAUDE_WORKSPACE_ROOT = $WorkspaceRoot
+    $env:CLAUDE_EXTRA_ALLOWED_DIRS = "$DocumentsPath,$DesktopPath"
     $env:EASY_CLAUDECODE_DEFAULT_ROUTE = "compatible-coding,MiniMax-M2.7"
 
     powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot "scripts\sync-router.ps1")
@@ -36,9 +43,10 @@ try {
             throw "missing allowed tool: $tool"
         }
     }
-    $dirs = @($settings.permissions.additionalDirectories)
-    foreach ($dir in @("C:/Users/Administrator/Documents", "C:/Users/Administrator/Desktop", "C:/Users/Administrator/Documents/Playground", $RepoRoot)) {
-        if ($dirs -notcontains $dir) {
+    $dirs = @($settings.permissions.additionalDirectories) | ForEach-Object { ([string]$_).Replace('\', '/').TrimEnd('/') }
+    foreach ($dir in @($DocumentsPath, $DesktopPath, $WorkspaceRoot, $RepoRoot)) {
+        $normalizedDir = ([string]$dir).Replace('\', '/').TrimEnd('/')
+        if ($dirs -notcontains $normalizedDir) {
             throw "missing additional directory: $dir"
         }
     }

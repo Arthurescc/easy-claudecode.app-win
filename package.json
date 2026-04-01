@@ -1,6 +1,6 @@
 {
   "name": "easy-claudecode.app-win",
-  "version": "0.1.18",
+  "version": "0.1.19",
   "private": true,
   "description": "The Windows-oriented release of easy-claudecode.app with local backend, browser shell, and configurable router.",
   "type": "commonjs",
