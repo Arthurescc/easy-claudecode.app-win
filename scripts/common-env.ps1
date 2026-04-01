@@ -25,6 +25,17 @@ function Expand-EnvValue {
     return $expanded
 }
 
+function Resolve-DefaultPermissionMode {
+    param([string]$Value)
+
+    $normalized = [string]$(if ($null -ne $Value) { $Value } else { "" })
+    $normalized = $normalized.Trim()
+    if (-not $normalized -or $normalized.Equals("default", [System.StringComparison]::OrdinalIgnoreCase)) {
+        return "auto"
+    }
+    return $normalized
+}
+
 if (Test-Path $EnvFile) {
     Get-Content $EnvFile | ForEach-Object {
         $Line = $_.Trim()
@@ -62,7 +73,7 @@ $env:CLAUDE_CONSOLE_HOST = if ($env:CLAUDE_CONSOLE_HOST) { $env:CLAUDE_CONSOLE_H
 $env:CLAUDE_CONSOLE_PORT = if ($env:CLAUDE_CONSOLE_PORT) { $env:CLAUDE_CONSOLE_PORT } else { "18882" }
 $env:CLAUDE_ROUTER_HEALTH_URL = if ($env:CLAUDE_ROUTER_HEALTH_URL) { $env:CLAUDE_ROUTER_HEALTH_URL } else { "http://127.0.0.1:3456/health" }
 $env:CLAUDE_PROXY_HEALTH_URL = if ($env:CLAUDE_PROXY_HEALTH_URL) { $env:CLAUDE_PROXY_HEALTH_URL } else { "http://127.0.0.1:3460/health" }
-$env:CLAUDE_WEB_PERMISSION_MODE = if ($env:CLAUDE_WEB_PERMISSION_MODE) { $env:CLAUDE_WEB_PERMISSION_MODE } else { "auto" }
+$env:CLAUDE_WEB_PERMISSION_MODE = Resolve-DefaultPermissionMode -Value $env:CLAUDE_WEB_PERMISSION_MODE
 $env:CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = if ($env:CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS) { $env:CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS } else { "1" }
 $env:CLAUDE_WORKSPACE_ROOT = if ($env:CLAUDE_WORKSPACE_ROOT) { $env:CLAUDE_WORKSPACE_ROOT } else { $RepoRoot }
 $env:CLAUDE_WRAPPER_PATH = if ($env:CLAUDE_WRAPPER_PATH) { $env:CLAUDE_WRAPPER_PATH } else { Join-Path $RepoRoot "scripts\claude-local-router.cmd" }

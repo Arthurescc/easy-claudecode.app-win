@@ -39,8 +39,11 @@ jobs:
           .\.venv\Scripts\python.exe .github/scripts/check_inline_js.py apps/web/claude-console.html
           node --test qa/router/custom-router.test.cjs qa/windows-release/frontend-install-surface.test.cjs qa/windows-release/readme-bootstrap-surface.test.cjs qa/windows-release/release-workflow.test.cjs qa/windows-release/library-collapse-surface.test.cjs qa/windows-release/startup-setup-surface.test.cjs qa/windows-release/codex-shell-surface.test.cjs
           .\qa\windows-release\common-env-home-expansion-smoke.ps1
+          .\qa\windows-release\common-env-permission-default-smoke.ps1
           .\qa\windows-release\install-from-github-smoke.ps1
           .\qa\windows-release\chat-shell-runtime-smoke.ps1
+          .\qa\windows-release\session-store-permission-policy-smoke.ps1
+          .\qa\windows-release\python-bin-fallback-smoke.ps1
           .\qa\windows-release\provider-registry-settings-smoke.ps1
           .\qa\windows-release\provider-profile-model-catalog-smoke.ps1
           .\qa\windows-release\direct-reply-explicit-route-smoke.ps1

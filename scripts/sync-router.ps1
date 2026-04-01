@@ -1,10 +1,32 @@
 $ErrorActionPreference = "Stop"
 . (Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "common-env.ps1")
 
+function Resolve-PythonBin {
+    $candidates = @()
+    if ($env:CLAUDE_CONSOLE_PYTHON_BIN) {
+        $candidates += $env:CLAUDE_CONSOLE_PYTHON_BIN
+    }
+    $pythonCommand = Get-Command python -ErrorAction SilentlyContinue
+    if ($pythonCommand) {
+        $candidates += $pythonCommand.Source
+    }
+    foreach ($candidate in $candidates) {
+        $text = [string]$(if ($null -ne $candidate) { $candidate } else { "" })
+        $text = $text.Trim()
+        if (-not $text) {
+            continue
+        }
+        if (Test-Path $text) {
+            return (Resolve-Path $text).Path
+        }
+    }
+    throw "python executable not found for router sync"
+}
+
 New-Item -ItemType Directory -Force -Path $env:CLAUDE_ROUTER_RUNTIME_DIR | Out-Null
 Copy-Item (Join-Path $env:CLAUDE_ROUTER_SOURCE_DIR "custom-router.js") $env:CLAUDE_ROUTER_CUSTOM_FILE -Force
 
-$PythonBin = if ($env:CLAUDE_CONSOLE_PYTHON_BIN) { $env:CLAUDE_CONSOLE_PYTHON_BIN } else { "python" }
+$PythonBin = Resolve-PythonBin
 $SourceConfig = Join-Path $env:CLAUDE_ROUTER_SOURCE_DIR "config.example.json"
 $TargetConfig = $env:CLAUDE_ROUTER_CONFIG_FILE
 $CustomRouter = $env:CLAUDE_ROUTER_CUSTOM_FILE

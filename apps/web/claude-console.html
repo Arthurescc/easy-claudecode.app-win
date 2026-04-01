@@ -5969,6 +5969,10 @@
                     if (finalSessionId && !appState.selectedSessionId) {
                         appState.selectedSessionId = finalSessionId;
                     }
+                    if (event.permissionMode && String(event.permissionMode).trim() && String(event.permissionMode).trim() !== String(appState.permissionMode || '').trim()) {
+                        appState.permissionModeDirty = false;
+                        setPermissionMode(String(event.permissionMode).trim(), { userInitiated: false });
+                    }
                     draft.model = event.model || draft.model || '';
                     if (appState.currentSession?.session) {
                         appState.currentSession.session.sessionId = finalSessionId || appState.currentSession.session.sessionId || '';
@@ -5979,6 +5983,10 @@
                     return;
                 }
                 if (event.type === 'system_notice') {
+                    if (event.permissionFallbackReason && event.permissionMode) {
+                        appState.permissionModeDirty = false;
+                        setPermissionMode(String(event.permissionMode).trim(), { userInitiated: false });
+                    }
                     draft.blocks.push({
                         type: 'text',
                         text: t('system_notice_session_switched', { message: event.message || t('session_switched_default') }),

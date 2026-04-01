@@ -424,6 +424,7 @@ ECC_DEFAULT_PROFILE = (os.getenv("EASY_CLAUDECODE_ECC_DEFAULT_PROFILE", "full") 
 ECC_INSTALL_SCRIPT = os.path.join(SOURCE_ROOT, "scripts", "install-everything-claude-code.ps1")
 ECC_VALID_TARGETS = {"claude", "cursor", "antigravity", "codex", "opencode"}
 ECC_VALID_PROFILES = {"core", "developer", "security", "research", "full"}
+AUTO_PERMISSION_SUPPORTED_MODEL_PREFIXES = ("claude-sonnet-4-6", "claude-opus-4-6")
 
 app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path="/static")
 
@@ -1306,6 +1307,72 @@ def _selected_mode_info(raw_mode: str | None) -> dict[str, str]:
         "label": "Auto",
         "kind": "auto",
     }
+
+
+def _claude_settings_file() -> Path:
+    return Path.home() / ".claude" / "settings.json"
+
+
+def _read_claude_settings_model() -> str:
+    settings_path = _claude_settings_file()
+    if not settings_path.exists():
+        return ""
+    try:
+        payload = json.loads(settings_path.read_text(encoding="utf-8"))
+    except Exception:
+        return ""
+    if not isinstance(payload, dict):
+        return ""
+    return str(payload.get("model") or "").strip()
+
+
+def _effective_permission_model(mode: str | None, *, current_model: str = "") -> str:
+    normalized_mode = _normalize_claude_mode(mode)
+    if normalized_mode and normalized_mode != "auto":
+        return normalized_mode
+    candidate = str(current_model or "").strip()
+    if not candidate:
+        return ""
+    matched_route = _match_route_id(candidate)
+    return matched_route or candidate
+
+
+def _supports_official_auto_permission_mode(mode: str | None, *, current_model: str = "") -> bool:
+    effective_model = _effective_permission_model(mode, current_model=current_model)
+    if not effective_model:
+        return False
+    matched_route = _match_route_id(effective_model)
+    if matched_route:
+        selected = _selected_mode_info(matched_route)
+        upstream_url = str(selected.get("upstream") or "").strip()
+        upstream_host = str(urllib_parse.urlparse(upstream_url).hostname or "").strip().lower()
+        vendor = str(selected.get("vendor") or "").strip().lower()
+        model_name = str(selected.get("model") or "").strip().lower()
+        if upstream_host != "api.anthropic.com" or vendor != "anthropic":
+            return False
+        return model_name.startswith(AUTO_PERMISSION_SUPPORTED_MODEL_PREFIXES)
+    lowered = str(effective_model or "").strip().lower()
+    return lowered.startswith(AUTO_PERMISSION_SUPPORTED_MODEL_PREFIXES)
+
+
+def _resolve_permission_mode_request(
+    requested_permission_mode: str | None,
+    mode: str | None,
+    *,
+    current_model: str = "",
+) -> dict[str, str]:
+    requested = _claude_normalize_permission_mode(requested_permission_mode or CLAUDE_WEB_PERMISSION_MODE or "auto")
+    if requested != "auto":
+        return {"requested": requested, "effective": requested, "reason": ""}
+    if _supports_official_auto_permission_mode(mode, current_model=current_model):
+        return {"requested": "auto", "effective": "auto", "reason": ""}
+    return {"requested": "auto", "effective": "acceptEdits", "reason": "auto_unsupported"}
+
+
+def _permission_mode_notice(permission_resolution: dict[str, str]) -> str:
+    if str(permission_resolution.get("reason") or "").strip() == "auto_unsupported":
+        return "当前链路不支持 Claude 官方 Auto mode，已自动切换到 acceptEdits，避免任务卡在权限确认。"
+    return ""
 
 
 def _normalize_agent_mode(raw_mode: str | None) -> str:
@@ -2912,6 +2979,12 @@ def _build_status(force_refresh: bool = False) -> dict:
     router_config = _read_json_file(CLAUDE_ROUTER_CONFIG_FILE, {})
     providers = []
     current_settings = _load_editable_settings()
+    current_model_hint = _read_claude_settings_model() or str(current_settings.get("EASY_CLAUDECODE_DEFAULT_ROUTE") or "").strip()
+    permission_resolution = _resolve_permission_mode_request(
+        CLAUDE_WEB_PERMISSION_MODE,
+        str(current_settings.get("EASY_CLAUDECODE_DEFAULT_ROUTE") or "auto"),
+        current_model=current_model_hint,
+    )
     library_payload = _build_library()
     auth_status = _parse_claude_auth_status()
     route_options = _route_options()
@@ -3001,10 +3074,12 @@ def _build_status(force_refresh: bool = False) -> dict:
             model_catalog=model_catalog,
             setup_status=setup_status,
             default_route=str(current_settings.get("EASY_CLAUDECODE_DEFAULT_ROUTE") or "").strip(),
-            permission_default=CLAUDE_WEB_PERMISSION_MODE,
+            permission_default=str(permission_resolution.get("effective") or CLAUDE_WEB_PERMISSION_MODE),
         ),
         "webDefaults": {
-            "permissionMode": CLAUDE_WEB_PERMISSION_MODE,
+            "permissionMode": str(permission_resolution.get("effective") or CLAUDE_WEB_PERMISSION_MODE),
+            "requestedPermissionMode": str(permission_resolution.get("requested") or CLAUDE_WEB_PERMISSION_MODE),
+            "permissionModeReason": str(permission_resolution.get("reason") or ""),
             "chatTimeoutSeconds": CLAUDE_CHAT_TIMEOUT_SECONDS,
             "locale": current_settings.get("CLAUDE_CONSOLE_LOCALE") or EDITABLE_SETTINGS_DEFAULTS["CLAUDE_CONSOLE_LOCALE"],
         },
@@ -3765,7 +3840,13 @@ def claude_console_chat():
     busy_session = _find_session_active_run(session_id) if session_id else None
     if busy_session:
         session_id = None
-    permission_mode = _claude_normalize_permission_mode(data.get("permissionMode") or CLAUDE_WEB_PERMISSION_MODE or "auto")
+    current_model_hint = _read_claude_settings_model() or str(_load_editable_settings().get("EASY_CLAUDECODE_DEFAULT_ROUTE") or "").strip()
+    permission_resolution = _resolve_permission_mode_request(
+        data.get("permissionMode") or CLAUDE_WEB_PERMISSION_MODE or "auto",
+        mode,
+        current_model=current_model_hint,
+    )
+    permission_mode = str(permission_resolution.get("effective") or CLAUDE_WEB_PERMISSION_MODE)
     attachments = data.get("attachments") if isinstance(data.get("attachments"), list) else []
     shell_selections = data.get("shellSelections") if isinstance(data.get("shellSelections"), list) else []
     original_prompt = _apply_shell_selections_to_prompt(_compose_prompt_with_attachments(prompt, attachments), shell_selections)
@@ -3788,6 +3869,18 @@ def claude_console_chat():
                         "message": "当前会话正在被后台任务占用，已自动切到新会话继续，避免聊天卡住。",
                         "busySessionId": requested_session_id,
                         "busyRun": busy_session,
+                    },
+                    ensure_ascii=False,
+                ) + "\n"
+            permission_notice = _permission_mode_notice(permission_resolution)
+            if permission_notice:
+                yield json.dumps(
+                    {
+                        "type": "system_notice",
+                        "message": permission_notice,
+                        "permissionMode": permission_mode,
+                        "requestedPermissionMode": str(permission_resolution.get("requested") or "auto"),
+                        "permissionFallbackReason": str(permission_resolution.get("reason") or ""),
                     },
                     ensure_ascii=False,
                 ) + "\n"
@@ -3872,7 +3965,13 @@ def claude_console_open_session():
     busy_session = _find_session_active_run(resume_session_id) if resume_session_id else None
     if busy_session:
         resume_session_id = ""
-    permission_mode = _claude_normalize_permission_mode(data.get("permissionMode") or CLAUDE_WEB_PERMISSION_MODE or "auto")
+    current_model_hint = _read_claude_settings_model() or str(_load_editable_settings().get("EASY_CLAUDECODE_DEFAULT_ROUTE") or "").strip()
+    permission_resolution = _resolve_permission_mode_request(
+        data.get("permissionMode") or CLAUDE_WEB_PERMISSION_MODE or "auto",
+        mode,
+        current_model=current_model_hint,
+    )
+    permission_mode = str(permission_resolution.get("effective") or CLAUDE_WEB_PERMISSION_MODE)
     shell_selections = data.get("shellSelections") if isinstance(data.get("shellSelections"), list) else []
     prepared_terminal_prompt = _apply_shell_selections_to_prompt(prompt, shell_selections)
     launch = _open_terminal_script(
@@ -3895,6 +3994,8 @@ def claude_console_open_session():
             "mode": mode,
             "agentMode": agent_mode,
             "permissionMode": permission_mode,
+            "requestedPermissionMode": str(permission_resolution.get("requested") or permission_mode),
+            "permissionFallbackReason": str(permission_resolution.get("reason") or ""),
             "continueLatest": continue_latest,
             "sessionId": resume_session_id or None,
             "detachedFromBusySession": bool(busy_session),
@@ -3912,7 +4013,13 @@ def claude_console_quick_run():
         return jsonify({"ok": False, "msg": "invalid json"}), 400
     mode = _normalize_claude_mode(data.get("mode"))
     agent_mode = _normalize_agent_mode(data.get("agentMode"))
-    permission_mode = _claude_normalize_permission_mode(data.get("permissionMode") or CLAUDE_WEB_PERMISSION_MODE or "auto")
+    current_model_hint = _read_claude_settings_model() or str(_load_editable_settings().get("EASY_CLAUDECODE_DEFAULT_ROUTE") or "").strip()
+    permission_resolution = _resolve_permission_mode_request(
+        data.get("permissionMode") or CLAUDE_WEB_PERMISSION_MODE or "auto",
+        mode,
+        current_model=current_model_hint,
+    )
+    permission_mode = str(permission_resolution.get("effective") or CLAUDE_WEB_PERMISSION_MODE)
     prompt = str(data.get("prompt") or "").strip()
     shell_selections = data.get("shellSelections") if isinstance(data.get("shellSelections"), list) else []
     if not prompt:
@@ -3945,6 +4052,8 @@ def claude_console_quick_run():
             "mode": mode,
             "agentMode": agent_mode,
             "permissionMode": permission_mode,
+            "requestedPermissionMode": str(permission_resolution.get("requested") or permission_mode),
+            "permissionFallbackReason": str(permission_resolution.get("reason") or ""),
             "transport": result.get("transport") or "unknown",
             "transportError": result.get("transportError") or "",
             "preparedPrompt": prepared_prompt,

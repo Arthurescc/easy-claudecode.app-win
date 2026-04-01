@@ -35,8 +35,8 @@ assert shell, payload
 assert "contextUsage" in shell, shell
 assert "slashSections" in shell, shell
 assert "permissionDefault" in shell, shell
-assert shell["permissionDefault"] == app.CLAUDE_WEB_PERMISSION_MODE, shell
 assert payload.get("webDefaults", {}).get("permissionMode") == shell["permissionDefault"], payload.get("webDefaults")
+assert payload.get("webDefaults", {}).get("requestedPermissionMode") in {"", "auto", "default", "acceptEdits", "bypassPermissions", "dontAsk", "plan"}, payload.get("webDefaults")
 assert any(str(item.get("id") or "") == "skills" for item in shell.get("slashSections") or []), shell
 assert any(str(item.get("id") or "") == "mcp" for item in shell.get("slashSections") or []), shell
 assert any(str(item.get("id") or "") == "brainstorming" for item in (payload.get("library", {}) or {}).get("skills", []) or app._build_library(force_refresh=True).get("skills", [])), "brainstorming skill should be preinstalled"
@@ -150,14 +150,19 @@ finally:
         app._write_terminal_script = original_write_terminal_script
 
 original_permission_default = app.CLAUDE_WEB_PERMISSION_MODE
+original_model_reader = app._read_claude_settings_model
 try:
-    app.CLAUDE_WEB_PERMISSION_MODE = "default"
+    app.CLAUDE_WEB_PERMISSION_MODE = "auto"
+    app._read_claude_settings_model = lambda: "compatible-coding,MiniMax-M2.7"
     payload = app._build_status(force_refresh=True)
     shell = payload.get("chatShell") or {}
-    assert shell.get("permissionDefault") == "default", shell
-    assert payload.get("webDefaults", {}).get("permissionMode") == "default", payload.get("webDefaults")
+    assert shell.get("permissionDefault") == "acceptEdits", shell
+    assert payload.get("webDefaults", {}).get("permissionMode") == "acceptEdits", payload.get("webDefaults")
+    assert payload.get("webDefaults", {}).get("requestedPermissionMode") == "auto", payload.get("webDefaults")
+    assert payload.get("webDefaults", {}).get("permissionModeReason") == "auto_unsupported", payload.get("webDefaults")
 finally:
     app.CLAUDE_WEB_PERMISSION_MODE = original_permission_default
+    app._read_claude_settings_model = original_model_reader
 
 print("chat shell runtime ok")
 '@ | & $PythonBin -

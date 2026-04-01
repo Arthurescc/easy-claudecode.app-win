@@ -228,8 +228,8 @@ def normalize_run_step(event: dict[str, object] | None) -> Dict[str, Any]:
 
 def project_slug_from_path(workspace_root: str) -> str:
     normalized = os.path.abspath(os.path.expanduser(workspace_root))
-    slug = normalized.replace("\\", "/").replace("/", "-")
-    return slug if slug.startswith("-") else f"-{slug}"
+    slug = normalized.replace("\\", "/").replace(":", "-").replace("/", "-")
+    return slug or "-"
 
 
 def project_sessions_dir(claude_home: str, workspace_root: str) -> str:

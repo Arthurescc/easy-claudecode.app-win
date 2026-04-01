@@ -33,7 +33,12 @@ export CLAUDE_CONSOLE_PORT="${CLAUDE_CONSOLE_PORT:-18882}"
 export CLAUDE_ROUTER_HEALTH_URL="${CLAUDE_ROUTER_HEALTH_URL:-http://127.0.0.1:3456/health}"
 export CLAUDE_PROXY_HEALTH_URL="${CLAUDE_PROXY_HEALTH_URL:-http://127.0.0.1:3460/health}"
 
-export CLAUDE_WEB_PERMISSION_MODE="default"
+claude_permission_mode="${CLAUDE_WEB_PERMISSION_MODE:-}"
+if [[ -z "$claude_permission_mode" || "${claude_permission_mode:l}" == "default" ]]; then
+  export CLAUDE_WEB_PERMISSION_MODE="auto"
+else
+  export CLAUDE_WEB_PERMISSION_MODE="$claude_permission_mode"
+fi
 export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS="${CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS:-1}"
 export CLAUDE_WORKSPACE_ROOT="${CLAUDE_WORKSPACE_ROOT:-$REPO_ROOT}"
 export CLAUDE_WRAPPER_PATH="${CLAUDE_WRAPPER_PATH:-$REPO_ROOT/scripts/claude-local-router.sh}"
