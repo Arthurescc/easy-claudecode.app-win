@@ -44,6 +44,7 @@ jobs:
           .\qa\windows-release\chat-shell-runtime-smoke.ps1
           .\qa\windows-release\session-store-permission-policy-smoke.ps1
           .\qa\windows-release\python-bin-fallback-smoke.ps1
+          .\qa\windows-release\sync-router-permissions-smoke.ps1
           .\qa\windows-release\provider-registry-settings-smoke.ps1
           .\qa\windows-release\provider-profile-model-catalog-smoke.ps1
           .\qa\windows-release\direct-reply-explicit-route-smoke.ps1
