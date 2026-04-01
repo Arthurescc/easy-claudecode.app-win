@@ -1185,9 +1185,9 @@
         }
 
         .composer-top {
-            justify-content: space-between;
-            margin-bottom: 10px;
-            flex-wrap: wrap;
+            justify-content: flex-start;
+            margin-bottom: 6px;
+            min-height: 22px;
         }
 
         .composer-toolbar {
@@ -1199,6 +1199,10 @@
 
         .composer-field {
             min-width: 184px;
+        }
+
+        .composer-field-compact {
+            min-width: 148px;
         }
 
         .composer-select {
@@ -1502,14 +1506,81 @@
 
         .composer-bottom {
             margin-top: 8px;
-            flex-wrap: wrap;
+            gap: 14px;
         }
 
         .composer-actions {
             display: flex;
             align-items: center;
+            gap: 12px;
+            width: 100%;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+
+        .composer-control-row {
+            display: flex;
+            align-items: center;
             gap: 10px;
-            margin-left: auto;
+            flex-wrap: wrap;
+            min-width: 0;
+        }
+
+        .composer-agent-field {
+            min-width: 136px;
+        }
+
+        .composer-reasoning-btn {
+            min-height: 40px;
+            padding: 0 14px;
+            border-radius: 999px;
+        }
+
+        .composer-send-btn {
+            width: 44px;
+            height: 44px;
+            padding: 0;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            line-height: 1;
+            background: #181512;
+            box-shadow: 0 12px 26px rgba(24, 21, 18, 0.24);
+        }
+
+        .composer-send-btn:hover {
+            background: #23201c;
+        }
+
+        .completion-summary {
+            display: grid;
+            gap: 8px;
+            margin-top: 14px;
+            padding: 12px 14px;
+            border-radius: 16px;
+            border: 1px solid rgba(96, 127, 115, 0.18);
+            background: rgba(96, 127, 115, 0.08);
+        }
+
+        .completion-summary-title {
+            color: var(--mint);
+            font-size: 12px;
+            font-family: var(--font-mono);
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .completion-summary-body {
+            font-size: 14px;
+            line-height: 1.55;
+            color: var(--text);
+        }
+
+        .completion-summary-meta {
+            color: var(--muted);
+            font-size: 12px;
         }
 
         .library-list {
@@ -1732,15 +1803,15 @@
                     <div class="codex-toolbar-left">
                         <button class="shell-plus-btn" id="btn-shell-attach" type="button" title="Add file">+</button>
                         <button class="shell-pill" id="shell-model-pill" type="button">
-                            <span class="shell-pill-label">Model</span>
+                            <span class="shell-pill-label" id="shell-model-pill-label">Model</span>
                             <span class="shell-pill-value" id="shell-model-pill-value">Auto</span>
                         </button>
                         <button class="shell-pill" id="shell-reasoning-pill" type="button">
-                            <span class="shell-pill-label">Reasoning</span>
+                            <span class="shell-pill-label" id="shell-reasoning-pill-label">Reasoning</span>
                             <span class="shell-pill-value" id="shell-reasoning-pill-value">Medium</span>
                         </button>
                         <button class="shell-pill" id="shell-permission-pill" type="button">
-                            <span class="shell-pill-label">Permission</span>
+                            <span class="shell-pill-label" id="shell-permission-pill-label">Permission</span>
                             <span class="shell-pill-value" id="shell-permission-pill-value">Auto</span>
                         </button>
                         <div id="context-ring"></div>
@@ -1795,31 +1866,30 @@
                         <div class="slash-chooser-list" id="slash-chooser-list"></div>
                     </div>
                     <div class="composer-top">
-                        <div class="composer-toolbar">
-                            <button class="ghost-btn attach-btn" id="btn-attach-file" type="button">＋ 文件</button>
-                            <input id="file-input" class="native-file-input" type="file" multiple aria-hidden="true" tabindex="-1" />
-                            <div class="composer-field">
-                                <select class="composer-select" id="model-route"></select>
-                            </div>
-                            <div class="composer-field">
-                                <select class="composer-select" id="agent-mode"></select>
-                            </div>
-                        </div>
                         <div class="composer-note" id="model-route-status"></div>
                     </div>
-                    <div class="attachment-list" id="attachment-list" style="display:none;"></div>
+                    <input id="file-input" class="native-file-input" type="file" multiple aria-hidden="true" tabindex="-1" />                    <div class="attachment-list" id="attachment-list" style="display:none;"></div>
                     <div class="composer-chip-row" id="composer-chip-row" style="display:none;"></div>
                     <textarea id="composer-input" placeholder="直接输入任务，例如：帮我删除桌面几张截屏，或检查这个仓库的关键报错并修复。"></textarea>
                     <div class="composer-bottom">
-                        <div class="composer-note" id="composer-note">
-                            Enter 发送，Shift+Enter 换行。
-                        </div>
                         <div class="composer-actions">
+                            <div class="composer-control-row">
+                                <button class="ghost-btn attach-btn" id="btn-attach-file" type="button">+ File</button>
+                                <div class="composer-field composer-field-compact">
+                                    <select class="composer-select" id="model-route"></select>
+                                </div>
+                                <button class="ghost-btn composer-reasoning-btn" id="btn-composer-reasoning" type="button">Reasoning</button>
+                                <div class="composer-field composer-field-compact composer-agent-field">
+                                    <select class="composer-select" id="agent-mode"></select>
+                                </div>
+                            </div>
+                            <div class="composer-note" id="composer-note">
+                                Enter 发送，Shift+Enter 换行。
+                            </div>
                             <button class="ghost-btn" id="btn-stop-run" style="display:none;">停止</button>
-                            <button class="primary-btn" id="btn-send">发送</button>
+                            <button class="primary-btn composer-send-btn" id="btn-send" aria-label="Send">↑</button>
                         </div>
-                    </div>
-                    <div class="composer-hidden-control" aria-hidden="true">
+                    </div>                    <div class="composer-hidden-control" aria-hidden="true">
                         <select class="composer-select" id="permission-mode" tabindex="-1">
                             <option value="auto">Auto</option>
                             <option value="default">Default</option>
@@ -1977,6 +2047,17 @@
                 welcome_open_settings: '打开设置',
                 settings_button: '设置',
                 open_terminal: '在终端继续',
+                shell_model_label: '模型',
+                shell_reasoning_label: '推理',
+                shell_permission_label: '权限',
+                slash_chooser_title: '快捷选择',
+                scroll_latest: '回到最新',
+                reasoning_low_short: '低推理',
+                reasoning_medium_short: '中等',
+                reasoning_high_short: '高推理',
+                completion_summary_title: '本次完成',
+                completion_summary_default: '已完成这一轮任务处理。',
+                completion_summary_steps: '执行了 {count} 个步骤',
                 permission_web: '网页权限',
                 permission_accept_edits: '自动接收改动',
                 permission_default: '默认确认模式',
@@ -2172,6 +2253,17 @@
                 welcome_open_settings: 'Open settings',
                 settings_button: 'Settings',
                 open_terminal: 'Continue in Terminal',
+                shell_model_label: 'Model',
+                shell_reasoning_label: 'Reasoning',
+                shell_permission_label: 'Permission',
+                slash_chooser_title: 'Slash chooser',
+                scroll_latest: 'Jump to latest',
+                reasoning_low_short: 'Low',
+                reasoning_medium_short: 'Medium',
+                reasoning_high_short: 'High',
+                completion_summary_title: 'What I did',
+                completion_summary_default: 'Completed this task pass.',
+                completion_summary_steps: 'Executed {count} steps',
                 permission_web: 'Web permissions',
                 permission_accept_edits: 'Auto-accept edits',
                 permission_default: 'Confirm by default',
@@ -2666,9 +2758,13 @@
                 ['workspace-title', 'workspace_title_new'],
                 ['btn-open-settings', 'settings_button'],
                 ['btn-open-terminal', 'open_terminal'],
+                ['shell-model-pill-label', 'shell_model_label'],
+                ['shell-reasoning-pill-label', 'shell_reasoning_label'],
+                ['shell-permission-pill-label', 'shell_permission_label'],
                 ['btn-attach-file', 'attach_file'],
+                ['slash-chooser-title', 'slash_chooser_title'],
+                ['btn-scroll-bottom', 'scroll_latest'],
                 ['btn-stop-run', 'stop'],
-                ['btn-send', 'send'],
                 ['sidebar-dialog-title', 'dialog_edit_session'],
                 ['settings-dialog-title', 'settings_title'],
                 ['settings-locale-label', 'settings_locale'],
@@ -2692,6 +2788,11 @@
             if (folderInput) folderInput.placeholder = t('dialog_folder_placeholder');
             const composerInput = document.getElementById('composer-input');
             if (composerInput) composerInput.placeholder = t('composer_placeholder');
+            const sendButton = document.getElementById('btn-send');
+            if (sendButton) {
+                sendButton.setAttribute('aria-label', t('send'));
+                sendButton.title = t('send');
+            }
             const refreshButton = document.getElementById('btn-refresh');
             if (refreshButton) refreshButton.title = t('refresh');
             const newFolderButton = document.getElementById('btn-new-folder');
@@ -2992,11 +3093,18 @@
         }
 
         function currentReasoningLabel() {
-            return findComposerChip('reasoning')?.label || 'Reasoning Medium';
+            return findComposerChip('reasoning')?.label || `Reasoning ${t('reasoning_medium_short')}`;
         }
 
         function currentPersonalityLabel() {
             return findComposerChip('personality')?.label || 'Default';
+        }
+
+        function currentReasoningShortLabel() {
+            const safeMode = String(appState.reasoningMode || 'medium').trim().toLowerCase();
+            if (safeMode === 'low') return t('reasoning_low_short');
+            if (safeMode === 'high') return t('reasoning_high_short');
+            return t('reasoning_medium_short');
         }
 
         function renderContextUsageRing() {
@@ -3032,10 +3140,12 @@
             const reasoningNode = document.getElementById('shell-reasoning-pill-value');
             const permissionNode = document.getElementById('shell-permission-pill-value');
             const branchNode = document.getElementById('shell-branch');
+            const composerReasoningNode = document.getElementById('btn-composer-reasoning');
             if (modelNode) modelNode.textContent = modelLabel;
-            if (reasoningNode) reasoningNode.textContent = currentReasoningLabel().replace(/^Reasoning\s+/i, '');
+            if (reasoningNode) reasoningNode.textContent = currentReasoningShortLabel();
             if (permissionNode) permissionNode.textContent = permissionLabel;
             if (branchNode) branchNode.textContent = branchLabel;
+            if (composerReasoningNode) composerReasoningNode.textContent = currentReasoningShortLabel();
             renderContextUsageRing();
         }
 
@@ -5135,7 +5245,35 @@
             `;
         }
 
-        function renderBlocks(blocks, messageId = '') {
+        function buildCompletionSummaryData(blocks) {
+            const safeBlocks = Array.isArray(blocks) ? blocks : [];
+            const textBlock = safeBlocks.find((block) => block?.type === 'text' && String(block?.text || '').trim());
+            const titleSource = String(textBlock?.text || '').trim();
+            const title = titleSource
+                ? String(titleSource.split(/\r?\n/).find((line) => String(line || '').trim()) || titleSource)
+                    .split(/(?<=[.!?。！？])\s/, 1)[0]
+                    .trim()
+                : t('completion_summary_default');
+            const stepCount = safeBlocks.filter((block) => block?.type === 'tool_use' || block?.type === 'tool_result').length;
+            return {
+                title: title || t('completion_summary_default'),
+                stepsLabel: stepCount > 0 ? t('completion_summary_steps', { count: String(stepCount) }) : '',
+            };
+        }
+
+        function renderCompletionSummary(blocks) {
+            const summary = buildCompletionSummaryData(blocks);
+            if (!summary.title && !summary.stepsLabel) return '';
+            return `
+                <div class="completion-summary">
+                    <div class="completion-summary-title">${escapeHtml(t('completion_summary_title'))}</div>
+                    <div class="completion-summary-body">${escapeHtml(summary.title || t('completion_summary_default'))}</div>
+                    ${summary.stepsLabel ? `<div class="completion-summary-meta">${escapeHtml(summary.stepsLabel)}</div>` : ''}
+                </div>
+            `;
+        }
+
+        function renderBlocks(blocks, messageId = '', role = 'assistant') {
             const thinkingBlocks = blocks.filter((block) => block.type === 'thinking' && block.text);
             const toolBlocks = blocks.filter((block) => block.type === 'tool_use' || block.type === 'tool_result');
             const textBlocks = blocks.filter((block) => block.type === 'text' && block.text);
@@ -5177,7 +5315,11 @@
                 </div>
             ` : '';
 
-            return `${thinkingHtml}${textHtml}${toolHtml}`;
+            const completionHtml = role === 'assistant' && (textBlocks.length || toolBlocks.length)
+                ? renderCompletionSummary(blocks)
+                : '';
+
+            return `${thinkingHtml}${textHtml}${toolHtml}${completionHtml}`;
         }
 
         function getMessageCopyText(messageId) {
@@ -5296,7 +5438,7 @@
                                 </div>
                             </div>
                             <div class="message-copy-scope">
-                                ${renderBlocks(blocks, message.id)}
+                                ${renderBlocks(blocks, message.id, role)}
                             </div>
                         </div>
                     </div>
@@ -6034,6 +6176,9 @@
                 cyclePermissionSelection(1);
             });
             document.getElementById('shell-reasoning-pill').addEventListener('click', () => {
+                cycleReasoningSelection(1);
+            });
+            document.getElementById('btn-composer-reasoning').addEventListener('click', () => {
                 cycleReasoningSelection(1);
             });
             document.getElementById('session-search').addEventListener('input', (event) => {

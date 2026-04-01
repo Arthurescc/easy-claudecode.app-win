@@ -66,6 +66,19 @@ test('codex shell surface exposes selector hooks and structured shell payloads',
   assert.match(html, /shellSelections/, 'frontend should submit structured shell selections');
   assert.match(html, /prompt,\s*\n\s*shellSelections,/, 'frontend should send raw prompt alongside shell selections');
   assert.doesNotMatch(html, /prompt:\s*preparedPrompt/, 'frontend should not rewrite the main prompt client-side');
+  assert.match(html, /function buildCompletionSummaryData\(/, 'frontend should derive a completion summary');
+  assert.match(html, /function renderCompletionSummary\(/, 'frontend should render a completion summary block');
+  assert.match(html, /id="shell-model-pill-label"/, 'shell model label should be locale-driven');
+  assert.match(html, /id="shell-reasoning-pill-label"/, 'shell reasoning label should be locale-driven');
+  assert.match(html, /id="shell-permission-pill-label"/, 'shell permission label should be locale-driven');
+  assert.match(html, /\['shell-model-pill-label', 'shell_model_label'\]/, 'applyLocale should map shell labels globally');
+  assert.match(html, /\['btn-scroll-bottom', 'scroll_latest'\]/, 'applyLocale should map scroll button globally');
+});
+
+test('composer layout keeps primary controls in the bottom control row', () => {
+  assert.match(html, /<div class="composer-bottom">[\s\S]*id="btn-attach-file"/, 'attach action should live in the bottom row');
+  assert.match(html, /<div class="composer-bottom">[\s\S]*id="model-route"/, 'model selector should live in the bottom row');
+  assert.match(html, /<div class="composer-bottom">[\s\S]*id="btn-send"/, 'send button should live in the bottom row');
 });
 
 test('top strip selectors synchronize actual model and permission state', () => {
@@ -257,4 +270,29 @@ test('scroll helpers detach and reattach auto-stick around user scroll position'
   context.scrollMessagesToBottom({ force: true });
   assert.equal(workspaceBody.scrollTop, workspaceBody.scrollHeight);
   assert.equal(context.appState.messageScrollDetached, false);
+});
+
+test('completion summary data captures final reply and executed step count', () => {
+  const context = evaluateFunctions(
+    ['buildCompletionSummaryData'],
+    {
+      t(key, vars = {}) {
+        if (key === 'completion_summary_default') return 'Completed a task';
+        if (key === 'completion_summary_steps') return `${vars.count} steps`;
+        return key;
+      },
+      String,
+      Array,
+      Math,
+    },
+  );
+
+  const summary = context.buildCompletionSummaryData([
+    { type: 'text', text: 'Fixed the layout issue.\nAlso refreshed the locale mapping.' },
+    { type: 'tool_use', name: 'Shell', input: { command: 'git status' } },
+    { type: 'tool_result', text: 'ok' },
+  ]);
+
+  assert.equal(summary.title, 'Fixed the layout issue.');
+  assert.equal(summary.stepsLabel, '2 steps');
 });
