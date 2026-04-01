@@ -1588,12 +1588,6 @@
             font-size: 12px;
         }
 
-        #composer-note {
-            flex: 1 1 100%;
-            order: 2;
-            margin-left: 8px;
-        }
-
         #btn-stop-run,
         #btn-send {
             order: 1;
@@ -1894,13 +1888,12 @@
                                 <div class="composer-field composer-field-compact">
                                     <select class="composer-select" id="model-route"></select>
                                 </div>
-                                <button class="ghost-btn composer-reasoning-btn" id="btn-composer-reasoning" type="button">Reasoning</button>
+                                <div class="composer-field composer-field-compact">
+                                    <select class="composer-select" id="reasoning-mode"></select>
+                                </div>
                                 <div class="composer-field composer-field-compact composer-agent-field">
                                     <select class="composer-select" id="agent-mode"></select>
                                 </div>
-                            </div>
-                            <div class="composer-note" id="composer-note">
-                                Enter 发送，Shift+Enter 换行。
                             </div>
                             <button class="ghost-btn" id="btn-stop-run" style="display:none;">停止</button>
                             <button class="primary-btn composer-send-btn" id="btn-send" aria-label="Send">↑</button>
@@ -2833,10 +2826,6 @@
             if (emptyPanel && !appState.bootstrapLoaded && !appState.bootstrapCacheUsed) {
                 emptyPanel.textContent = t('loading_threads');
             }
-            const composerNote = document.getElementById('composer-note');
-            if (composerNote && !appState.bootstrap) {
-                composerNote.textContent = t('composer_note');
-            }
             const permissionMode = document.getElementById('permission-mode');
             if (permissionMode) {
                 const optionLabels = {
@@ -2852,6 +2841,7 @@
             renderSettingsRouteOptions(document.getElementById('settings-default-route')?.value || '');
             updateSidebarChrome();
             renderModelOptions();
+            renderReasoningOptions();
             renderAgentModeOptions();
             renderEverythingClaudeCodeSurface();
             updateWorkspaceTitle();
@@ -3156,12 +3146,12 @@
             const reasoningNode = document.getElementById('shell-reasoning-pill-value');
             const permissionNode = document.getElementById('shell-permission-pill-value');
             const branchNode = document.getElementById('shell-branch');
-            const composerReasoningNode = document.getElementById('btn-composer-reasoning');
+            const composerReasoningNode = document.getElementById('reasoning-mode');
             if (modelNode) modelNode.textContent = modelLabel;
             if (reasoningNode) reasoningNode.textContent = currentReasoningShortLabel();
             if (permissionNode) permissionNode.textContent = permissionLabel;
             if (branchNode) branchNode.textContent = branchLabel;
-            if (composerReasoningNode) composerReasoningNode.textContent = currentReasoningShortLabel();
+            if (composerReasoningNode) composerReasoningNode.value = appState.reasoningMode;
             renderContextUsageRing();
         }
 
@@ -3986,6 +3976,20 @@
             select.value = options.some((item) => item.id === appState.agentMode) ? appState.agentMode : 'auto';
         }
 
+        function renderReasoningOptions() {
+            const select = document.getElementById('reasoning-mode');
+            if (!select) return;
+            const options = [
+                { id: 'low', label: t('reasoning_low_short') },
+                { id: 'medium', label: t('reasoning_medium_short') },
+                { id: 'high', label: t('reasoning_high_short') },
+            ];
+            select.innerHTML = options.map((item) => `
+                <option value="${escapeHtml(item.id)}">${escapeHtml(item.label)}</option>
+            `).join('');
+            select.value = options.some((item) => item.id === appState.reasoningMode) ? appState.reasoningMode : 'medium';
+        }
+
         function renderAttachments() {
             const list = document.getElementById('attachment-list');
             if (!appState.attachments.length) {
@@ -4146,12 +4150,6 @@
                 node.className = `session-status-pill ${ok ? 'ok' : 'fail'}`;
                 node.textContent = label;
             });
-            const selectedAgentMode = selectedAgentModeInfo();
-            document.getElementById('composer-note').textContent =
-                t('composer_note_detail', {
-                    agent: agentModeMeta(selectedAgentMode?.id || '')?.label || selectedAgentMode?.label || t('collaboration_off'),
-                    attachmentSuffix: appState.attachments.length ? t('attachment_suffix', { count: appState.attachments.length }) : '',
-                });
             renderShellToolbar();
             renderComposerChips();
             updateScrollJumpButton();
@@ -6194,8 +6192,12 @@
             document.getElementById('shell-reasoning-pill').addEventListener('click', () => {
                 cycleReasoningSelection(1);
             });
-            document.getElementById('btn-composer-reasoning').addEventListener('click', () => {
-                cycleReasoningSelection(1);
+            document.getElementById('reasoning-mode').addEventListener('change', (event) => {
+                const next = String(event.target.value || 'medium').trim() || 'medium';
+                const options = slashChoicesForSection('reasoning');
+                const choice = options.find((item) => String(item.value || item.id || '').includes(next))
+                    || { id: `reasoning-${next}`, label: `Reasoning ${next.charAt(0).toUpperCase()}${next.slice(1)}`, value: next };
+                upsertComposerChip('reasoning', choice);
             });
             document.getElementById('session-search').addEventListener('input', (event) => {
                 appState.search = event.target.value.trim();

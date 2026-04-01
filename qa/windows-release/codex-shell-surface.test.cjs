@@ -78,7 +78,10 @@ test('codex shell surface exposes selector hooks and structured shell payloads',
 test('composer layout keeps primary controls in the bottom control row', () => {
   assert.match(html, /<div class="composer-bottom">[\s\S]*id="btn-attach-file"/, 'attach action should live in the bottom row');
   assert.match(html, /<div class="composer-bottom">[\s\S]*id="model-route"/, 'model selector should live in the bottom row');
+  assert.match(html, /<div class="composer-bottom">[\s\S]*id="reasoning-mode"/, 'reasoning selector should live in the bottom row');
   assert.match(html, /<div class="composer-bottom">[\s\S]*id="btn-send"/, 'send button should live in the bottom row');
+  assert.doesNotMatch(html, /id="btn-composer-reasoning"/, 'reasoning should not be a button-only control');
+  assert.doesNotMatch(html, /id="composer-note"/, 'the small helper note should not be rendered');
 });
 
 test('top strip selectors synchronize actual model and permission state', () => {

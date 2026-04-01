@@ -39,6 +39,7 @@ assert shell["permissionDefault"] == app.CLAUDE_WEB_PERMISSION_MODE, shell
 assert payload.get("webDefaults", {}).get("permissionMode") == shell["permissionDefault"], payload.get("webDefaults")
 assert any(str(item.get("id") or "") == "skills" for item in shell.get("slashSections") or []), shell
 assert any(str(item.get("id") or "") == "mcp" for item in shell.get("slashSections") or []), shell
+assert any(str(item.get("id") or "") == "brainstorming" for item in (payload.get("library", {}) or {}).get("skills", []) or app._build_library(force_refresh=True).get("skills", [])), "brainstorming skill should be preinstalled"
 
 assert app._claude_normalize_permission_mode("default") == "default"
 assert app._claude_normalize_permission_mode("") == "auto"
